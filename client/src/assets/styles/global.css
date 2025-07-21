@@ -1,0 +1,93 @@
+/* 전역 스타일 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--bg-main, #fff);
+  color: var(--text-main, #111);
+  line-height: 1.6;
+}
+
+body.theme-light {
+  --bg-main: #fff;
+  --text-main: #111;
+  --card-bg: #fff;
+  --card-border: #e0e0e0;
+  --card-shadow: 0 4px 18px #bdbdbd22;
+  --input-bg: #fff;
+  --input-border: #e0e0e0;
+  --button-bg: #111;
+  --button-text: #fff;
+}
+body.theme-dark {
+  --bg-main: #111;
+  --text-main: #fff;
+  --card-bg: #23272f;
+  --card-border: #333;
+  --card-shadow: 0 4px 18px #000a;
+  --input-bg: #23272f;
+  --input-border: #444;
+  --button-bg: #fff;
+  --button-text: #111;
+}
+body.theme-gradient {
+  --bg-main: radial-gradient(ellipse at 60% 0%, #e0e7ff 0%, #f3e8ff 60%, #ede7f6 100%);
+  --text-main: #23272f;
+  --card-bg: #fff;
+  --card-border: #e0e0e0;
+  --card-shadow: 0 4px 18px #b39ddb22;
+  --input-bg: #fff;
+  --input-border: #e0e0e0;
+  --button-bg: linear-gradient(90deg,#8ec5fc,#4caf50);
+  --button-text: #fff;
+}
+
+html, body, #root, .App {
+  background: var(--color-bg);
+  color: var(--color-text);
+  min-height: 100vh;
+  transition: background 0.3s, color 0.3s;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  outline: none;
+  background: var(--button-bg, #111);
+  color: var(--button-text, #fff);
+  transition: background 0.18s, color 0.18s;
+}
+
+input, textarea, select {
+  font-family: inherit;
+  font-size: inherit;
+  background: var(--input-bg, #fff);
+  color: var(--text-main, #111);
+  border: 1.5px solid var(--input-border, #e0e0e0);
+  transition: background 0.18s, color 0.18s, border 0.18s;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
