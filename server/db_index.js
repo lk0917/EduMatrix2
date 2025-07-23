@@ -1,16 +1,16 @@
 require("dotenv").config();
 require("./mongodb");
 
-const express           = require("express");
-const cors              = require("cors");
-const userRoutes        = require("./routes/user");
-const quizRouter        = require("./routes/quiz");
-const learningRoutes    = require("./routes/learning");
-const userCategoryRoutes= require("./routes/userCategory");
-const studyNoteRoutes   = require("./routes/studyNote");
-const calendarRouter    = require("./routes/calendar");
+const express = require("express");
+const cors = require("cors");
+const userRoutes = require("./routes/user");
+const quizRouter = require("./routes/quiz");
+const learningRoutes = require("./routes/learning");
+const userCategoryRoutes = require("./routes/userCategory");
+const studyNoteRoutes = require("./routes/studyNote");
+const calendarRouter = require("./routes/calendar");
 const progressRoutes = require("./routes/progress");
-
+const ai = require("./controller/AIChatbot");
 const app = express();
 
 app.use(cors());
@@ -32,8 +32,9 @@ app.use("/api/study-note", studyNoteRoutes);
 
 app.use("/api/calendar", calendarRouter);
 
+app.use("/api/progress", progressRoutes);
 
-app.use("/api/progress", progressRoutes);  
+app.post("/chat", ai.handleChat);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {

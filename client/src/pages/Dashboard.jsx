@@ -165,16 +165,16 @@ const getWeeklySummary = () => {
         }
       : {};
 
-  // Sidebar menu items
+  // Sidebar menu items (컬러풀한 아이콘)
   const sidebarMenu = [
-    { label: '대시보드 홈', path: '/dashboard' },
-    { label: '설정/마이페이지', path: '/dashboard/studyroom' },
-    { label: '스터디 노트', path: '/dashboard/note' },
-    { label: '주간 평가', path: '/dashboard/weekly' },
-    { label: '진행률', path: '/dashboard/progress' },
-    { label: '캘린더', path: '/dashboard/calendar' },
-    { label: '추천 학습', path: '/dashboard/recommend' },
-    { label: '퀴즈', path: '/dashboard/quiz' },
+    { label: '대시보드 홈', path: '/dashboard', icon: <span style={{fontSize:22,color:'#667eea'}}>🏠</span> },
+    { label: '설정/마이페이지', path: '/dashboard/studyroom', icon: <span style={{fontSize:22,color:'#43a047'}}>⚙️</span> },
+    { label: '스터디 노트', path: '/dashboard/note', icon: <span style={{fontSize:22,color:'#4caf50'}}>📝</span> },
+    { label: '주간 평가', path: '/dashboard/weekly', icon: <span style={{fontSize:22,color:'#ff9800'}}>🏆</span> },
+    { label: '진행률', path: '/dashboard/progress', icon: <span style={{fontSize:22,color:'#1976d2'}}>📈</span> },
+    { label: '캘린더', path: '/dashboard/calendar', icon: <span style={{fontSize:22,color:'#764ba2'}}>🗓️</span> },
+    { label: '추천 학습', path: '/dashboard/recommend', icon: <span style={{fontSize:22,color:'#2196f3'}}>🌟</span> },
+    { label: '퀴즈', path: '/dashboard/quiz', icon: <span style={{fontSize:22,color:'#e74c3c'}}>❓</span> },
   ];
 
   return (
@@ -195,33 +195,90 @@ const getWeeklySummary = () => {
           }}
         />
       )}
-      {/* Sidebar Overlay (smooth animation) */}
+      {/* Sidebar Overlay (UI 개선) */}
       <div style={{
-        position: 'fixed', top: 0, left: 0, height: '100vh', zIndex: 1200,
-        width: 260,
-        transform: sidebarOpen ? 'translateX(0)' : 'translateX(-110%)',
+        position: 'fixed', top: 0, left: 0,
+        height: '100vh', zIndex: 2000,
+        width: '90vw', maxWidth: 340, minWidth: 220,
+        transform: sidebarOpen ? 'translateX(0)' : 'translateX(-120%)',
         opacity: sidebarOpen ? 1 : 0.5,
-        boxShadow: sidebarOpen ? '2px 0 24px #e0e0e0' : 'none',
-        background: '#fff',
-        overflow: 'hidden',
+        boxShadow: sidebarOpen ? '12px 0 40px 0 #667eea33, 0 0 0 100vw rgba(40,40,60,0.10)' : 'none',
+        background: 'rgba(255,255,255,0.97)',
+        backdropFilter: 'blur(8px) saturate(1.2)',
+        overflowY: 'auto',
+        overflowX: 'hidden',
         transition: 'transform 0.55s cubic-bezier(.7,.2,.2,1), opacity 0.45s cubic-bezier(.7,.2,.2,1), box-shadow 0.3s',
-        padding: sidebarOpen ? '2rem 1.2rem' : '2rem 0',
+        padding: sidebarOpen ? '2.5rem 1.5rem 2.2rem 1.5rem' : '2rem 0',
         pointerEvents: sidebarOpen ? 'auto' : 'none',
         display: 'flex', flexDirection: 'column',
-      }}>
-        <button onClick={() => setSidebarOpen(false)} style={{ position: 'absolute', top: 18, right: 18, background: 'none', border: 'none', fontSize: 22, color: '#888', cursor: 'pointer' }}>✕</button>
-        <div style={{ fontWeight: 800, fontSize: 22, color: '#667eea', marginBottom: 24, opacity: sidebarOpen ? 1 : 0, transition: 'opacity 0.2s 0.1s' }}>메뉴</div>
-        <ul style={{ listStyle: 'none', padding: 0, fontSize: 17, color: '#333', opacity: sidebarOpen ? 1 : 0, transition: 'opacity 0.2s 0.1s', flex: 1 }}>
+        borderTopRightRadius: 28, borderBottomRightRadius: 28,
+        minWidth: 220,
+      }} className="sidebar-fancy">
+        {/* 상단 로고 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 32, fontWeight: 900, fontSize: 24, color: '#667eea', letterSpacing: -1, textShadow: '0 2px 12px #667eea22', userSelect: 'none' }}>
+          <span style={{ fontSize: 32, color: '#667eea', filter: 'drop-shadow(0 2px 8px #b3bcf533)' }}>📚</span>
+          EduMatrix
+        </div>
+        <button onClick={() => setSidebarOpen(false)} style={{ position: 'absolute', top: 18, right: 18, background: 'none', border: 'none', fontSize: 26, color: '#888', cursor: 'pointer', fontWeight: 700, transition: 'color 0.18s' }} onMouseEnter={e=>e.currentTarget.style.color='#667eea'} onMouseLeave={e=>e.currentTarget.style.color='#888'}>✕</button>
+        <div style={{ fontWeight: 800, fontSize: 19, color: '#667eea', marginBottom: 16, opacity: sidebarOpen ? 1 : 0, transition: 'opacity 0.2s 0.1s', letterSpacing: '-0.5px' }}>메뉴</div>
+        <hr style={{ border: 'none', borderTop: '1.5px solid #e0e7ff', margin: '0 0 18px 0', boxShadow: '0 1px 4px #e0e7ff33' }} />
+        <ul style={{ listStyle: 'none', padding: 0, fontSize: 17, color: '#333', opacity: sidebarOpen ? 1 : 0, transition: 'opacity 0.2s 0.1s', flex: 1, marginBottom: 18 }}>
           {sidebarMenu.map((item, idx) => (
-            <li key={item.path} style={{ marginBottom: 18, cursor: 'pointer', borderRadius: 8, padding: '0.5rem 0.7rem', transition: 'background 0.18s', border: '1.5px solid #e0e0e0' }}
+            <li key={item.path}
+              style={{
+                marginBottom: 10,
+                cursor: 'pointer',
+                borderRadius: 12,
+                padding: '0.85rem 1.2rem',
+                transition: 'background 0.18s, color 0.18s, box-shadow 0.18s',
+                border: 'none',
+                display: 'flex', alignItems: 'center', gap: 15,
+                fontWeight: 700,
+                fontSize: 17,
+                background: window.location.pathname === item.path ? 'linear-gradient(90deg,#a5b4fc,#c7d2fe 80%)' : 'none',
+                color: window.location.pathname === item.path ? '#4338ca' : '#333',
+                boxShadow: window.location.pathname === item.path ? '0 2px 12px #a5b4fc44' : 'none',
+                borderLeft: window.location.pathname === item.path ? '5px solid #667eea' : '5px solid transparent',
+              }}
               onClick={() => {navigate(item.path); setSidebarOpen(false);}}
-              onMouseEnter={e => e.currentTarget.style.background = '#f3e8ff'}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              onMouseEnter={e => { e.currentTarget.style.background = 'linear-gradient(90deg,#e0e7ff,#c7d2fe 80%)'; e.currentTarget.style.color = '#4338ca'; e.currentTarget.style.boxShadow = '0 2px 12px #a5b4fc44'; }}
+              onMouseLeave={e => { if(window.location.pathname !== item.path) { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#333'; e.currentTarget.style.boxShadow = 'none'; } }}
             >
+              {item.icon}
               {item.label}
             </li>
           ))}
         </ul>
+        <hr style={{ border: 'none', borderTop: '1.5px solid #e0e7ff', margin: '0 0 18px 0', boxShadow: '0 1px 4px #e0e7ff33' }} />
+        {/* 하단 사용자 정보/로그아웃 (예시) */}
+        <div style={{ marginTop: 'auto', padding: '0.7rem 0 0.2rem 0', textAlign: 'center', color: '#888', fontSize: 15, fontWeight: 600, letterSpacing: '-0.5px' }}>
+          <div style={{ marginBottom: 4 }}>
+            <span style={{ fontSize: 18, marginRight: 6 }}>👤</span> 사용자님
+          </div>
+          <button style={{ background: 'none', border: 'none', color: '#e74c3c', fontWeight: 700, fontSize: 15, cursor: 'pointer', padding: 0, marginTop: 2 }} onClick={()=>{localStorage.clear(); window.location.href='/login';}}>로그아웃</button>
+        </div>
+        {/* 사이드바 스크롤바 스타일 */}
+        <style>{`
+          @media (max-width: 600px) {
+            .sidebar-fancy {
+              width: 100vw !important;
+              min-width: 0 !important;
+              max-width: 100vw !important;
+              border-radius: 0 !important;
+              left: 0 !important;
+            }
+          }
+          .sidebar-fancy::-webkit-scrollbar {
+            width: 8px;
+          }
+          .sidebar-fancy::-webkit-scrollbar-thumb {
+            background: #e0e7ff;
+            border-radius: 6px;
+          }
+          .sidebar-fancy::-webkit-scrollbar-track {
+            background: transparent;
+          }
+        `}</style>
       </div>
       {/* AI Chatbot Overlay (smooth animation, close on outside click) */}
       <div style={{

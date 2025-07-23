@@ -18,6 +18,8 @@ import ListItem from '@tiptap/extension-list-item';
 import 'highlight.js/styles/github.css';
 import { useTheme } from '../context/ThemeContext';
 import axios from 'axios';
+import DashboardNavbar from '../components/DashboardNavbar';
+import AIChatBot from '../components/AIChatBot';
 
 const lowlight = createLowlight();
 
@@ -46,6 +48,40 @@ export default function NoteDetail() {
     const { theme } = useTheme();
     const { id } = useParams();
     const navigate = useNavigate();
+
+    // 대시보드 네비게이션바용 상태 추가
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [chatbotOpen, setChatbotOpen] = useState(false);
+    const chatbotRef = useRef(null);
+
+    // Dashboard와 동일한 sidebar 메뉴 (컬러풀한 아이콘)
+    const sidebarMenu = [
+      { label: '대시보드 홈', path: '/dashboard', icon: <span style={{fontSize:22,color:'#667eea'}}>🏠</span> },
+      { label: '설정/마이페이지', path: '/dashboard/studyroom', icon: <span style={{fontSize:22,color:'#43a047'}}>⚙️</span> },
+      { label: '스터디 노트', path: '/dashboard/note', icon: <span style={{fontSize:22,color:'#4caf50'}}>📝</span> },
+      { label: '주간 평가', path: '/dashboard/weekly', icon: <span style={{fontSize:22,color:'#ff9800'}}>🏆</span> },
+      { label: '진행률', path: '/dashboard/progress', icon: <span style={{fontSize:22,color:'#1976d2'}}>📈</span> },
+      { label: '캘린더', path: '/dashboard/calendar', icon: <span style={{fontSize:22,color:'#764ba2'}}>🗓️</span> },
+      { label: '추천 학습', path: '/dashboard/recommend', icon: <span style={{fontSize:22,color:'#2196f3'}}>🌟</span> },
+      { label: '퀴즈', path: '/dashboard/quiz', icon: <span style={{fontSize:22,color:'#e74c3c'}}>❓</span> },
+    ];
+
+    // 대시보드와 동일하게 오버레이 클릭 시 닫기
+    const handleOverlayClick = () => {
+        setSidebarOpen(false);
+        setChatbotOpen(false);
+    };
+
+    useEffect(() => {
+        if (!chatbotOpen) return;
+        function handleClick(e) {
+            if (chatbotRef.current && !chatbotRef.current.contains(e.target)) {
+                setChatbotOpen(false);
+            }
+        }
+        document.addEventListener('mousedown', handleClick);
+        return () => document.removeEventListener('mousedown', handleClick);
+    }, [chatbotOpen]);
 
     const [title, setTitle] = useState('');
     const [date, setDate] = useState('');
@@ -188,7 +224,105 @@ export default function NoteDetail() {
     };
 
   return (
-    <div style={{ maxWidth: 1100, width: '95vw', margin: '3rem auto', background: 'var(--card-bg)', borderRadius: 28, boxShadow: '0 8px 32px var(--card-shadow)', padding: '2.5rem 2.2rem', color: 'var(--text-main)' }}>
+    <div style={{ maxWidth: 1100, width: '95vw', margin: '3rem auto', background: 'var(--card-bg)', borderRadius: 28, boxShadow: '0 8px 32px var(--card-shadow)', padding: '2.5rem 2.2rem', color: 'var(--text-main)', position: 'relative' }}>
+      {/* 네비게이션바 */}
+      <DashboardNavbar
+        onSidebarToggle={() => setSidebarOpen(v => !v)}
+        onChatbotToggle={() => setChatbotOpen(v => !v)}
+      />
+      {/* Overlay (dimmed) */}
+      {(sidebarOpen || chatbotOpen) && (
+        <div
+          onClick={handleOverlayClick}
+          style={{
+            position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+            background: 'rgba(40,40,60,0.18)', zIndex: 1199,
+            opacity: (sidebarOpen || chatbotOpen) ? 1 : 0,
+            transition: 'opacity 0.45s cubic-bezier(.7,.2,.2,1)',
+          }}
+        />
+      )}
+      {/* Sidebar Overlay (UI 개선) */}
+      <div style={{
+        position: 'fixed', top: 0, left: 0,
+        height: '100vh', zIndex: 2000,
+        width: '90vw', maxWidth: 340, minWidth: 220,
+        transform: sidebarOpen ? 'translateX(0)' : 'translateX(-120%)',
+        opacity: sidebarOpen ? 1 : 0.5,
+        boxShadow: sidebarOpen ? '12px 0 40px 0 #667eea33, 0 0 0 100vw rgba(40,40,60,0.10)' : 'none',
+        background: 'rgba(255,255,255,0.97)',
+        backdropFilter: 'blur(8px) saturate(1.2)',
+        overflowY: 'auto',
+        overflowX: 'hidden',
+        transition: 'transform 0.55s cubic-bezier(.7,.2,.2,1), opacity 0.45s cubic-bezier(.7,.2,.2,1), box-shadow 0.3s',
+        padding: sidebarOpen ? '2.5rem 1.5rem 2.2rem 1.5rem' : '2rem 0',
+        pointerEvents: sidebarOpen ? 'auto' : 'none',
+        display: 'flex', flexDirection: 'column',
+        borderTopRightRadius: 28, borderBottomRightRadius: 28,
+        minWidth: 220,
+      }}>
+        {/* 상단 로고 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 32, fontWeight: 900, fontSize: 24, color: '#667eea', letterSpacing: -1, textShadow: '0 2px 12px #667eea22', userSelect: 'none' }}>
+            <span style={{ fontSize: 32, color: '#667eea', filter: 'drop-shadow(0 2px 8px #b3bcf533)' }}>📚</span>
+            EduMatrix
+          </div>
+          <button onClick={() => setSidebarOpen(false)} style={{ position: 'absolute', top: 18, right: 18, background: 'none', border: 'none', fontSize: 26, color: '#888', cursor: 'pointer', fontWeight: 700, transition: 'color 0.18s' }} onMouseEnter={e=>e.currentTarget.style.color='#667eea'} onMouseLeave={e=>e.currentTarget.style.color='#888'}>✕</button>
+          <div style={{ fontWeight: 800, fontSize: 19, color: '#667eea', marginBottom: 16, opacity: sidebarOpen ? 1 : 0, transition: 'opacity 0.2s 0.1s', letterSpacing: '-0.5px' }}>메뉴</div>
+          <hr style={{ border: 'none', borderTop: '1.5px solid #e0e7ff', margin: '0 0 18px 0', boxShadow: '0 1px 4px #e0e7ff33' }} />
+          <ul style={{ listStyle: 'none', padding: 0, fontSize: 17, color: '#333', opacity: sidebarOpen ? 1 : 0, transition: 'opacity 0.2s 0.1s', flex: 1, marginBottom: 18 }}>
+            {sidebarMenu.map((item, idx) => (
+              <li key={item.path}
+                style={{
+                  marginBottom: 10,
+                  cursor: 'pointer',
+                  borderRadius: 12,
+                  padding: '0.85rem 1.2rem',
+                  transition: 'background 0.18s, color 0.18s, box-shadow 0.18s',
+                  border: 'none',
+                  display: 'flex', alignItems: 'center', gap: 15,
+                  fontWeight: 700,
+                  fontSize: 17,
+                  background: window.location.pathname === item.path ? 'linear-gradient(90deg,#a5b4fc,#c7d2fe 80%)' : 'none',
+                  color: window.location.pathname === item.path ? '#4338ca' : '#333',
+                  boxShadow: window.location.pathname === item.path ? '0 2px 12px #a5b4fc44' : 'none',
+                  borderLeft: window.location.pathname === item.path ? '5px solid #667eea' : '5px solid transparent',
+                }}
+                onClick={() => {navigate(item.path); setSidebarOpen(false);}}
+                onMouseEnter={e => { e.currentTarget.style.background = 'linear-gradient(90deg,#e0e7ff,#c7d2fe 80%)'; e.currentTarget.style.color = '#4338ca'; e.currentTarget.style.boxShadow = '0 2px 12px #a5b4fc44'; }}
+                onMouseLeave={e => { if(window.location.pathname !== item.path) { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#333'; e.currentTarget.style.boxShadow = 'none'; } }}
+              >
+                {item.icon}
+                {item.label}
+              </li>
+            ))}
+          </ul>
+          <hr style={{ border: 'none', borderTop: '1.5px solid #e0e7ff', margin: '0 0 18px 0', boxShadow: '0 1px 4px #e0e7ff33' }} />
+          {/* 하단 사용자 정보/로그아웃 (예시) */}
+          <div style={{ marginTop: 'auto', padding: '0.7rem 0 0.2rem 0', textAlign: 'center', color: '#888', fontSize: 15, fontWeight: 600, letterSpacing: '-0.5px' }}>
+            <div style={{ marginBottom: 4 }}>
+              <span style={{ fontSize: 18, marginRight: 6 }}>👤</span> 사용자님
+            </div>
+            <button style={{ background: 'none', border: 'none', color: '#e74c3c', fontWeight: 700, fontSize: 15, cursor: 'pointer', padding: 0, marginTop: 2 }} onClick={()=>{localStorage.clear(); window.location.href='/login';}}>로그아웃</button>
+          </div>
+        </div>
+      {/* AI Chatbot Overlay (close on outside click) */}
+      <div style={{
+        position: 'fixed', bottom: 0, right: 0, width: 380, maxWidth: '95vw', height: 540,
+        zIndex: 1300, display: 'flex', flexDirection: 'column',
+        pointerEvents: chatbotOpen ? 'auto' : 'none',
+        opacity: chatbotOpen ? 1 : 0,
+        transform: chatbotOpen ? 'translateY(0) scale(1)' : 'translateY(60px) scale(0.98)',
+        boxShadow: chatbotOpen ? '-2px 0 24px var(--color-secondary)' : 'none',
+        transition: 'opacity 0.5s cubic-bezier(.7,.2,.2,1), transform 0.6s cubic-bezier(.7,.2,.2,1), box-shadow 0.3s',
+      }}>
+        <div ref={chatbotRef} style={{
+          background: 'var(--color-secondary)', boxShadow: '-2px 0 16px var(--color-secondary)', borderTopLeftRadius: 18, borderTopRightRadius: 18, border: '2px solid var(--color-primary)', height: '100%', position: 'relative', display: 'flex', flexDirection: 'column', width: '100%',
+        }}>
+          <button onClick={() => setChatbotOpen(false)} style={{ position: 'absolute', top: 12, right: 18, background: 'none', border: 'none', fontSize: 22, color: 'var(--color-text)', cursor: 'pointer', zIndex: 2 }}>✕</button>
+          <AIChatBot />
+        </div>
+      </div>
+      {/* 기존 노트 디테일 UI */}
       <button onClick={() => navigate(-1)} style={{ position: 'absolute', top: 24, left: 24, background: 'none', border: '1.5px solid #1976d2', borderRadius: 8, padding: '0.4rem 1.2rem', color: '#1976d2', fontWeight: 700, cursor: 'pointer' }}>← 돌아가기</button>
       <button onClick={handleDelete} style={{ position: 'absolute', top: 24, right: 24, background: '#eee', color: '#e74c3c', border: 'none', borderRadius: 8, padding: '0.4rem 1.2rem', fontWeight: 700, fontSize: 16, cursor: 'pointer' }}>삭제</button>
       <div style={{ fontWeight: 800, fontSize: 28, color: '#1976d2', marginBottom: 16, marginTop: 30 }}>노트 수정</div>
@@ -322,6 +456,28 @@ export default function NoteDetail() {
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(-8px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+      {/* 사이드바 스크롤바 스타일 */}
+      <style>{`
+        @media (max-width: 600px) {
+          .sidebar-fancy {
+            width: 100vw !important;
+            min-width: 0 !important;
+            max-width: 100vw !important;
+            border-radius: 0 !important;
+            left: 0 !important;
+          }
+        }
+        .sidebar-fancy::-webkit-scrollbar {
+          width: 8px;
+        }
+        .sidebar-fancy::-webkit-scrollbar-thumb {
+          background: #e0e7ff;
+          border-radius: 6px;
+        }
+        .sidebar-fancy::-webkit-scrollbar-track {
+          background: transparent;
         }
       `}</style>
     </div>

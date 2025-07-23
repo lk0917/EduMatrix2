@@ -63,6 +63,8 @@ useEffect(() => {
 
   return (
     <div style={{ maxWidth: 1500, margin: '3rem auto', background: 'var(--card-bg)', borderRadius: 28, boxShadow: '0 8px 32px var(--card-shadow)', padding: '2.5rem 2.2rem', minHeight: 500, color: 'var(--text-main)' }}>
+      {/* 뒤로가기 버튼 */}
+      <button onClick={() => navigate(-1)} style={{ marginBottom: 18, background: 'none', border: '1.5px solid #1976d2', borderRadius: 8, padding: '0.4rem 1.2rem', color: '#1976d2', fontWeight: 700, cursor: 'pointer' }}>← 돌아가기</button>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
         <h2 style={{ fontWeight: 900, fontSize: 32, color: '#388e3c', letterSpacing: -1, display: 'flex', alignItems: 'center', gap: 8 }}>
           <span role="img" aria-label="note">📝</span> 스터디 노트

@@ -3,6 +3,7 @@ import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import { FaRegCalendarCheck, FaBookOpen, FaPlusCircle } from 'react-icons/fa';
 import axios from "axios";
+import { useNavigate } from 'react-router-dom';
 
 function ModalCard({ open, onClose, title, children }) {
   if (!open) return null;
@@ -27,6 +28,7 @@ function CalendarPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [editGoal, setEditGoal] = useState('');
   const [editField, setEditField] = useState('JS');
+  const navigate = useNavigate();
 
     useEffect(() => {
         const fetchPlans = async () => {
@@ -46,9 +48,9 @@ function CalendarPage() {
         fetchPlans();
     }, []);
 
-  // 오늘 날짜
+  // 오늘 날짜 (로컬 기준)
   const today = new Date();
-  const todayStr = today.toISOString().slice(0, 10);
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
   // 날짜 클릭 시 모달 오픈 및 기존 데이터 세팅
   const handleCalendarClick = (date) => {
@@ -102,9 +104,21 @@ function CalendarPage() {
         }
     };
 
+  // 분야별 컬러 매핑
+  const fieldColors = {
+    'JS': '#ffd600',
+    'Python': '#4caf50',
+    'Clang': '#1976d2',
+    'English(Voca)': '#ff9800',
+    'English(Grammar)': '#e91e63',
+    '기타': '#9e9e9e',
+  };
+
   return (
    <div style={{ minHeight: '100vh', background: 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2.5rem', color: 'var(--text-main)' }}>
       <div style={{ background: 'var(--card-bg)', borderRadius: 36, boxShadow: '0 16px 64px var(--card-shadow)', padding: '3.5rem 2.5rem', maxWidth: 1200, width: '100%' }}>
+        {/* 뒤로가기 버튼 */}
+        <button onClick={() => navigate(-1)} style={{ marginBottom: 18, background: 'none', border: '1.5px solid #1976d2', borderRadius: 8, padding: '0.4rem 1.2rem', color: '#1976d2', fontWeight: 700, cursor: 'pointer' }}>← 돌아가기</button>
         {/* 상단 일러스트/아이콘 */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <FaRegCalendarCheck style={{ fontSize: 54, color: 'var(--color-primary)', marginBottom: 8 }} />
@@ -126,24 +140,47 @@ function CalendarPage() {
               locale="ko-KR"
               onClickDay={handleCalendarClick}
               tileContent={({ date, view }) => {
-                const ymd = date.toISOString().slice(0, 10);
+                const ymd = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
                 if (planData[ymd]) {
+                  const color = fieldColors[planData[ymd].분야] || '#667eea';
                   return (
-                    <div style={{ marginTop: 6, display: 'flex', justifyContent: 'center' }}>
-                      <span style={{ background: 'var(--color-primary)', color: 'var(--color-bg)', borderRadius: 10, padding: '2px 10px', fontSize: 17, fontWeight: 700, boxShadow: '0 1px 4px var(--card-shadow)' }}>
-                        {planData[ymd].목표}
-                      </span>
-                    </div>
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        marginTop: 6,
+                        background: color,
+                        color: '#fff',
+                        borderRadius: 8,
+                        padding: '2px 10px',
+                        fontSize: 13,
+                        fontWeight: 700,
+                        minWidth: 0,
+                        maxWidth: 80,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        boxShadow: '0 1px 4px #0001',
+                        letterSpacing: '-0.5px',
+                        border: 'none',
+                        transition: 'background 0.18s',
+                      }}
+                      title={`분야: ${planData[ymd].분야}`}
+                    >
+                      {planData[ymd].목표}
+                    </span>
                   );
                 }
                 return null;
               }}
               tileClassName={({ date, view }) => {
-                const ymd = date.toISOString().slice(0, 10);
-                if (ymd === todayStr) return 'calendar-today-highlight';
+                const ymd = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                if (ymd === todayStr) return 'calendar-today-minimal';
+                if (planData[ymd]) return 'calendar-has-plan-minimal';
+                if (date.getDay() === 0 || date.getDay() === 6) return 'calendar-weekend';
                 return '';
               }}
-              style={{ width: '100%', height: '100%', minWidth: 800, minHeight: 600, fontSize: 24, borderRadius: 32, border: '3px solid var(--card-border)', background: 'var(--input-bg)', padding: 40, boxShadow: '0 4px 24px var(--card-shadow)', flexGrow: 1 }}
+              tileDisabled={({ date }) => false}
+              style={{ width: '100%', height: '100%', minWidth: 800, minHeight: 600, fontSize: 22, borderRadius: 28, border: '2px solid #e0e7ff', background: '#f8fafc', padding: 32, boxShadow: '0 2px 12px #e0e7ff33', flexGrow: 1 }}
               calendarType="gregory"
             />
           </div>
@@ -187,65 +224,86 @@ function CalendarPage() {
           height: 100% !important;
           min-width: 800px !important;
           min-height: 600px !important;
-          background: var(--card-bg) !important;
-          color: var(--color-text) !important;
+          background: #f8fafc !important;
+          color: #222 !important;
         }
         .custom-big-calendar .react-calendar__viewContainer,
         .custom-big-calendar .react-calendar__month-view {
           width: 100% !important;
           min-width: 800px !important;
           min-height: 600px !important;
-          background: var(--card-bg) !important;
+          background: #f8fafc !important;
         }
         .custom-big-calendar .react-calendar__navigation {
-          margin-bottom: 18px;
+          margin-bottom: 12px;
+          background: none;
+          box-shadow: none;
         }
         .custom-big-calendar .react-calendar__navigation button {
-          font-size: 1.4em;
+          font-size: 1.15em;
           font-weight: 700;
-          color: var(--color-primary);
+          color: #667eea;
           background: none;
-          border-radius: 10px;
+          border-radius: 8px;
           margin: 0 2px;
-          transition: background 0.18s;
+          border: none;
+          padding: 6px 12px;
+          transition: background 0.18s, color 0.18s;
         }
         .custom-big-calendar .react-calendar__navigation button:enabled:hover {
-          background: var(--color-secondary);
+          background: #e0e7ff;
+          color: #4338ca;
         }
         .custom-big-calendar .react-calendar__month-view__weekdays {
           text-align: center;
-          font-size: 1.2em;
-          color: var(--color-primary);
-          font-weight: 800;
+          font-size: 1.08em;
+          color: #888;
+          font-weight: 700;
           letter-spacing: 0.5px;
         }
         .custom-big-calendar .react-calendar__tile {
           min-width: 80px;
           min-height: 80px;
-          font-size: 1.15em;
-          border-radius: 16px;
-          transition: background 0.18s, color 0.18s, box-shadow 0.18s;
-          background: var(--card-bg);
-          color: var(--color-text);
+          font-size: 1.08em;
+          border-radius: 14px;
+          transition: background 0.18s, color 0.18s, box-shadow 0.18s, border 0.18s;
+          background: #fff !important;
+          color: #222;
+          border: 1.5px solid #e0e7ff;
+          box-shadow: 0 1px 4px #e0e7ff22;
+          padding: 0.7em 0.2em 0.5em 0.2em;
         }
         .custom-big-calendar .react-calendar__tile:enabled:hover {
-          background: var(--color-secondary);
-          color: var(--color-primary);
-          box-shadow: 0 2px 8px var(--card-shadow);
+          background: #f3f6fd !important;
+          color: #4338ca !important;
+          box-shadow: 0 4px 16px #a5b4fc22;
+          border: 1.5px solid #a5b4fc;
+          z-index: 2;
         }
         .custom-big-calendar .react-calendar__tile--active {
-          background: linear-gradient(90deg, var(--color-primary), var(--color-secondary)) !important;
-          color: var(--color-bg) !important;
+          background: #e0e7ff !important;
+          color: #4338ca !important;
           font-weight: 900;
-          box-shadow: 0 2px 12px var(--card-shadow);
+          box-shadow: 0 2px 8px #a5b4fc33;
+          border: 1.5px solid #667eea;
         }
-        .calendar-today-highlight abbr {
-          background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
-          color: var(--color-bg) !important;
+        .calendar-today-minimal abbr {
+          border: 2.5px solid #1976d2;
+          background: #fff;
+          color: #1976d2 !important;
           border-radius: 50%;
-          padding: 0.2em 0.6em;
+          padding: 0.18em 0.55em;
           font-weight: 900;
           font-size: 1.08em;
+          box-shadow: 0 2px 8px #a5b4fc22;
+        }
+        .calendar-has-plan-minimal {
+          border: 1.5px solid #4caf50 !important;
+          box-shadow: 0 2px 8px #4caf5022 !important;
+        }
+        .calendar-weekend {
+          background: #f4f6f8 !important;
+          color: #bbb !important;
         }
       `}</style>
     </div>
