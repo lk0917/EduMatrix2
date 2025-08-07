@@ -1,42 +1,94 @@
-require("dotenv").config();
-require("./mongodb");
+const pool = require("./db");
 
-const express = require("express");
-const cors = require("cors");
-const userRoutes = require("./routes/user");
-const quizRouter = require("./routes/quiz");
-const learningRoutes = require("./routes/learning");
-const userCategoryRoutes = require("./routes/userCategory");
-const studyNoteRoutes = require("./routes/studyNote");
-const calendarRouter = require("./routes/calendar");
-const progressRoutes = require("./routes/progress");
-const ai = require("./controller/AIChatbot");
-const app = express();
+async function initializeDatabase() {
+  try {
+    const conn = await pool.getConnection();
 
-app.use(cors());
-app.use(express.json());
-app.use((req, res, next) => {
-  res.setHeader("Content-Type", "application/json; charset=utf-8");
-  next();
-});
+    // learning_goals 테이블 생성
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS learning_goals (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        subject VARCHAR(100) NOT NULL,
+        detail VARCHAR(100) NOT NULL,
+        level VARCHAR(50) NOT NULL,
+        goal TEXT NOT NULL,
+        start_date DATE NOT NULL,
+        end_date DATE NOT NULL,
+        field VARCHAR(100) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_user_id (user_id)
+      )
+    `);
 
-app.use("/api/users", userRoutes);
+    // test_results 테이블 수정 (필요한 컬럼 추가)
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS test_results (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        subject VARCHAR(100) NOT NULL,
+        detail VARCHAR(100) NOT NULL,
+        level VARCHAR(50) NOT NULL,
+        goal TEXT,
+        start_date DATE,
+        end_date DATE,
+        field VARCHAR(100),
+        score INT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_user_id (user_id)
+      )
+    `);
 
-app.use("/api/quiz", quizRouter);
+    // 기존 test_results 테이블에 컬럼 추가 (이미 존재하는 경우)
+    try {
+      await conn.query("ALTER TABLE test_results ADD COLUMN goal TEXT AFTER level");
+    } catch (error) {
+      // 컬럼이 이미 존재하는 경우 무시
+      console.log("goal 컬럼이 이미 존재합니다.");
+    }
 
-app.use("/api/learning", learningRoutes);
+    try {
+      await conn.query("ALTER TABLE test_results ADD COLUMN start_date DATE AFTER goal");
+    } catch (error) {
+      console.log("start_date 컬럼이 이미 존재합니다.");
+    }
 
-app.use("/api/user-categories", userCategoryRoutes);
+    try {
+      await conn.query("ALTER TABLE test_results ADD COLUMN end_date DATE AFTER start_date");
+    } catch (error) {
+      console.log("end_date 컬럼이 이미 존재합니다.");
+    }
 
-app.use("/api/study-note", studyNoteRoutes);
+    try {
+      await conn.query("ALTER TABLE test_results ADD COLUMN field VARCHAR(100) AFTER end_date");
+    } catch (error) {
+      console.log("field 컬럼이 이미 존재합니다.");
+    }
 
-app.use("/api/calendar", calendarRouter);
+    try {
+      await conn.query("ALTER TABLE test_results ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
+    } catch (error) {
+      console.log("created_at 컬럼이 이미 존재합니다.");
+    }
 
-app.use("/api/progress", progressRoutes);
+    // user_fields 테이블 생성 (이미 있다면 무시)
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS user_fields (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        field VARCHAR(100) NOT NULL,
+        level VARCHAR(50) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_user_id (user_id)
+      )
+    `);
 
-app.post("/chat", ai.handleChat);
+    console.log("데이터베이스 테이블 초기화 완료");
+    conn.release();
+  } catch (error) {
+    console.error("데이터베이스 초기화 실패:", error);
+  }
+}
 
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`SERVER ON : http://localhost:${PORT}`);
-});
+module.exports = { initializeDatabase };

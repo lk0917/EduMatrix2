@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { useUser } from '../context/UserContext';
 
 const subjectLabel = {
   english: '영어',
@@ -69,8 +71,42 @@ function getPlan(score, level) {
 function PlanRecommend() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { subject, detail, level, score } = location.state || {};
+  const { user } = useUser();
+  const { subject, detail, level, score, calendarPlan: initialCalendarPlan } = location.state || {};
+  const [calendarPlan, setCalendarPlan] = useState(initialCalendarPlan || []);
+  const [loading, setLoading] = useState(!initialCalendarPlan);
   const plan = getPlan(score, level);
+
+  useEffect(() => {
+    // 이미 전달받은 캘린더 계획이 있으면 사용
+    if (initialCalendarPlan && initialCalendarPlan.length > 0) {
+      setCalendarPlan(initialCalendarPlan);
+      setLoading(false);
+      return;
+    }
+
+    // 서버에서 생성된 캘린더 계획을 가져오기
+    const fetchCalendarPlan = async () => {
+      try {
+        const { data } = await axios.get('/api/calendar/get-user-plan', {
+          params: { user_id: user?.user_id }
+        });
+        if (data.success) {
+          setCalendarPlan(data.plans || []);
+        }
+      } catch (error) {
+        console.error('캘린더 계획 조회 실패:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user?.user_id) {
+      fetchCalendarPlan();
+    } else {
+      setLoading(false);
+    }
+  }, [user, initialCalendarPlan]);
 
   return (
     <div style={{ minHeight: '100vh', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
@@ -90,6 +126,7 @@ function PlanRecommend() {
           </div>
           <div style={{ color: '#111', fontWeight: 700, fontSize: 16, marginBottom: 0 }}>퀴즈 점수: {score} / 10</div>
         </div>
+        
         {/* 추천 플랜 카드 */}
         <div style={{ background: '#fff', border: '2px solid #111', borderRadius: 20, padding: '2.2rem 1.7rem', marginBottom: 32, boxShadow: '0 2px 12px #0001', textAlign: 'center', position: 'relative' }}>
           <div style={{ position: 'absolute', top: 18, right: 24, fontSize: 32, opacity: 0.18 }}>{plan.icon}</div>
@@ -105,6 +142,51 @@ function PlanRecommend() {
             ))}
           </div>
         </div>
+
+        {/* AI 생성 캘린더 계획 표시 */}
+        {loading && (
+          <div style={{ marginBottom: 32, textAlign: 'center' }}>
+            <div style={{ fontSize: 18, color: '#666' }}>
+              📅 AI가 학습 계획을 생성하고 있습니다...
+            </div>
+          </div>
+        )}
+        
+        {!loading && calendarPlan.length > 0 && (
+          <div style={{ marginBottom: 32 }}>
+            <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 16, color: '#111', textAlign: 'center' }}>
+              📅 일일 학습 계획
+            </div>
+            <div style={{ maxHeight: 300, overflowY: 'auto', padding: '0 10px' }}>
+              {calendarPlan.slice(0, 7).map((plan, idx) => (
+                <div key={idx} style={{
+                  background: '#f8f9fa',
+                  borderRadius: 12,
+                  padding: '1rem',
+                  marginBottom: 12,
+                  border: '1px solid #e9ecef'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <div style={{ fontWeight: 700, color: '#111', fontSize: 16 }}>Day {idx + 1}</div>
+                    <div style={{ color: '#667eea', fontSize: 14, fontWeight: 600 }}>{plan.date}</div>
+                  </div>
+                  <div style={{ fontWeight: 600, color: '#333', marginBottom: 6 }}>{plan.topic}</div>
+                  <div style={{ color: '#666', fontSize: 14, marginBottom: 4 }}>목표: {plan.goal}</div>
+                  <div style={{ color: '#888', fontSize: 13 }}>{plan.description}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!loading && calendarPlan.length === 0 && (
+          <div style={{ marginBottom: 32, textAlign: 'center' }}>
+            <div style={{ fontSize: 16, color: '#666' }}>
+              캘린더 계획을 불러올 수 없습니다.
+            </div>
+          </div>
+        )}
+
         <div style={{ textAlign: 'center' }}>
           <button
             onClick={() => navigate('/dashboard')}

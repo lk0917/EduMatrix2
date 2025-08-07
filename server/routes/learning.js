@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const LearningRecord = require("../models/LearningRecord");
+const pool = require('../db');
 
 // 학습 기록 추가
 router.post("/records", async (req, res) => {
@@ -36,6 +37,58 @@ router.delete("/records/:id", async (req, res) => {
         console.error("기록 삭제 실패:", err);
         res.status(500).json({ error: "기록 삭제 실패" });
     }
+});
+
+// 학습 목표 저장
+router.post('/save-learning-goal', async (req, res) => {
+  const { user_id, subject, detail, level, goal, start_date, end_date, field } = req.body;
+  
+  try {
+    const conn = await pool.getConnection();
+    
+    // 기존 학습 목표가 있다면 업데이트, 없다면 새로 생성
+    const [existing] = await conn.query(
+      'SELECT * FROM learning_goals WHERE user_id = ?',
+      [user_id]
+    );
+
+    if (existing.length > 0) {
+      await conn.query(
+        'UPDATE learning_goals SET subject = ?, detail = ?, level = ?, goal = ?, start_date = ?, end_date = ?, field = ?, updated_at = NOW() WHERE user_id = ?',
+        [subject, detail, level, goal, start_date, end_date, field, user_id]
+      );
+    } else {
+      await conn.query(
+        'INSERT INTO learning_goals (user_id, subject, detail, level, goal, start_date, end_date, field, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
+        [user_id, subject, detail, level, goal, start_date, end_date, field]
+      );
+    }
+
+    conn.release();
+    res.json({ success: true, message: '학습 목표가 저장되었습니다.' });
+  } catch (error) {
+    console.error('학습 목표 저장 실패:', error);
+    res.status(500).json({ error: '학습 목표 저장에 실패했습니다.' });
+  }
+});
+
+// 학습 목표 조회
+router.get('/get-learning-goal/:user_id', async (req, res) => {
+  const { user_id } = req.params;
+  
+  try {
+    const conn = await pool.getConnection();
+    const [goals] = await conn.query(
+      'SELECT * FROM learning_goals WHERE user_id = ? ORDER BY created_at DESC LIMIT 1',
+      [user_id]
+    );
+    
+    conn.release();
+    res.json(goals[0] || null);
+  } catch (error) {
+    console.error('학습 목표 조회 실패:', error);
+    res.status(500).json({ error: '학습 목표 조회에 실패했습니다.' });
+  }
 });
 
 // 주석 처리된 에러문구는 절대 변경하지말아주세요.

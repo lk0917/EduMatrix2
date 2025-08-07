@@ -20,14 +20,36 @@ function ModalCard({ open, onClose, title, children }) {
   );
 }
 
-const 분야목록 = ['JS','Python','Clang','English(Voca)','English(Grammar)','기타'];
+
+
+const 분야목록 = [
+  // 코딩 분야
+  'JavaScript', 'TypeScript', 'React', 'Vue.js', 'Node.js', 'Express.js',
+  'Python', 'Django', 'Flask', 'FastAPI', 'Pandas', 'NumPy', 'TensorFlow',
+  'C', 'C++', 'C#', 'Java', 'Spring Boot', 'Kotlin',
+  'Go', 'Rust', 'PHP', 'Laravel', 'Ruby', 'Rails',
+  'Swift', 'Objective-C', 'Dart', 'Flutter', 'React Native',
+  'SQL', 'MySQL', 'PostgreSQL', 'MongoDB', 'Redis',
+  'AWS', 'Docker', 'Kubernetes', 'Git', 'Linux',
+  
+  // 영어 분야
+  'English(Vocabulary)', 'English(Grammar)', 'English(Listening)', 'English(Speaking)', 'English(Reading)', 'English(Writing)',
+  'TOEIC', 'TOEFL', 'IELTS', 'OPIc', 'TEPS',
+  'Business English', 'Academic English', 'Conversational English',
+  'English Literature', 'English Essay', 'English Presentation',
+  
+  // 기타
+  '기타'
+];
 
 function CalendarPage() {
   const [planData, setPlanData] = useState({});
   const [selectedDate, setSelectedDate] = useState(null);
   const [editOpen, setEditOpen] = useState(false);
   const [editGoal, setEditGoal] = useState('');
-  const [editField, setEditField] = useState('JS');
+  const [editTopic, setEditTopic] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editField, setEditField] = useState('기타');
   const navigate = useNavigate();
 
     useEffect(() => {
@@ -36,8 +58,8 @@ function CalendarPage() {
             if (!user?.user_id) return;
             try {
                 const res = await axios.get(`/api/calendar/${user.user_id}`);
-                const data = res.data.reduce((acc, { date, goal, field, _id }) => {
-                    acc[date] = { 목표: goal, 분야: field, id: _id };
+                const data = res.data.reduce((acc, { date, goal, field, topic, description, _id }) => {
+                    acc[date] = { 목표: goal, 분야: field, 주제: topic, 설명: description, id: _id };
                     return acc;
                 }, {});
                 setPlanData(data);
@@ -57,7 +79,9 @@ function CalendarPage() {
     const ymd = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     setSelectedDate(ymd);
     setEditGoal(planData[ymd]?.목표 || '');
-    setEditField(planData[ymd]?.분야 || 'JS');
+    setEditTopic(planData[ymd]?.주제 || '');
+    setEditDescription(planData[ymd]?.설명 || '');
+    setEditField(planData[ymd]?.분야 || '기타');
     setEditOpen(true);
   };
   // 계획 저장
@@ -67,12 +91,16 @@ function CalendarPage() {
             user_id: user.user_id,
             date: selectedDate,
             goal: editGoal,
+            topic: editTopic,
+            description: editDescription,
             field: editField
         };
         try {
             if (planData[selectedDate]?.id) {
                 await axios.put(`/api/calendar/${planData[selectedDate].id}`, {
                     goal: editGoal,
+                    topic: editTopic,
+                    description: editDescription,
                     field: editField
                 });
             } else {
@@ -81,7 +109,13 @@ function CalendarPage() {
             }
             setPlanData(prev => ({
                 ...prev,
-                [selectedDate]: { 목표: editGoal, 분야: editField, id: payload.id }
+                [selectedDate]: { 
+                    목표: editGoal, 
+                    분야: editField, 
+                    주제: editTopic,
+                    설명: editDescription,
+                    id: payload.id 
+                }
             }));
             setEditOpen(false);
         } catch (err) {
@@ -106,11 +140,32 @@ function CalendarPage() {
 
   // 분야별 컬러 매핑
   const fieldColors = {
-    'JS': '#ffd600',
-    'Python': '#4caf50',
-    'Clang': '#1976d2',
-    'English(Voca)': '#ff9800',
-    'English(Grammar)': '#e91e63',
+    // JavaScript 계열
+    'JavaScript': '#ffd600', 'TypeScript': '#3178c6', 'React': '#61dafb', 'Vue.js': '#4fc08d', 'Node.js': '#339933', 'Express.js': '#000000',
+    
+    // Python 계열
+    'Python': '#3776ab', 'Django': '#092e20', 'Flask': '#000000', 'FastAPI': '#009688', 'Pandas': '#130654', 'NumPy': '#4dabcf', 'TensorFlow': '#ff6f00',
+    
+    // C/C++/Java 계열
+    'C': '#a8b9cc', 'C++': '#00599c', 'C#': '#178600', 'Java': '#ed8b00', 'Spring Boot': '#6db33f', 'Kotlin': '#f18e33',
+    
+    // 기타 프로그래밍 언어
+    'Go': '#00add8', 'Rust': '#ce422b', 'PHP': '#777bb4', 'Laravel': '#ff2d20', 'Ruby': '#cc342d', 'Rails': '#cc0000',
+    
+    // 모바일/앱 개발
+    'Swift': '#ffac45', 'Objective-C': '#438eff', 'Dart': '#00b4ab', 'Flutter': '#02569b', 'React Native': '#61dafb',
+    
+    // 데이터베이스/인프라
+    'SQL': '#e48e00', 'MySQL': '#4479a1', 'PostgreSQL': '#336791', 'MongoDB': '#47a248', 'Redis': '#dc382d',
+    'AWS': '#ff9900', 'Docker': '#2496ed', 'Kubernetes': '#326ce5', 'Git': '#f05032', 'Linux': '#fcc624',
+    
+    // 영어 분야
+    'English(Vocabulary)': '#ff9800', 'English(Grammar)': '#e91e63', 'English(Listening)': '#9c27b0', 'English(Speaking)': '#f44336', 'English(Reading)': '#2196f3', 'English(Writing)': '#4caf50',
+    'TOEIC': '#ff5722', 'TOEFL': '#795548', 'IELTS': '#607d8b', 'OPIc': '#ff9800', 'TEPS': '#9e9e9e',
+    'Business English': '#3f51b5', 'Academic English': '#673ab7', 'Conversational English': '#009688',
+    'English Literature': '#8bc34a', 'English Essay': '#ffc107', 'English Presentation': '#ff5722',
+    
+    // 기본값
     '기타': '#9e9e9e',
   };
 
@@ -139,39 +194,40 @@ function CalendarPage() {
               className="custom-big-calendar"
               locale="ko-KR"
               onClickDay={handleCalendarClick}
-              tileContent={({ date, view }) => {
-                const ymd = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-                if (planData[ymd]) {
-                  const color = fieldColors[planData[ymd].분야] || '#667eea';
-                  return (
-                    <span
-                      style={{
-                        display: 'inline-block',
-                        marginTop: 6,
-                        background: color,
-                        color: '#fff',
-                        borderRadius: 8,
-                        padding: '2px 10px',
-                        fontSize: 13,
-                        fontWeight: 700,
-                        minWidth: 0,
-                        maxWidth: 80,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        boxShadow: '0 1px 4px #0001',
-                        letterSpacing: '-0.5px',
-                        border: 'none',
-                        transition: 'background 0.18s',
-                      }}
-                      title={`분야: ${planData[ymd].분야}`}
-                    >
-                      {planData[ymd].목표}
-                    </span>
-                  );
-                }
-                return null;
-              }}
+                             tileContent={({ date, view }) => {
+                 const ymd = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                 if (planData[ymd]) {
+                   const color = fieldColors[planData[ymd].분야] || '#667eea';
+                   const displayText = planData[ymd].주제 || planData[ymd].목표;
+                   return (
+                     <span
+                       style={{
+                         display: 'inline-block',
+                         marginTop: 6,
+                         background: color,
+                         color: '#fff',
+                         borderRadius: 8,
+                         padding: '2px 10px',
+                         fontSize: 13,
+                         fontWeight: 700,
+                         minWidth: 0,
+                         maxWidth: 80,
+                         overflow: 'hidden',
+                         textOverflow: 'ellipsis',
+                         whiteSpace: 'nowrap',
+                         boxShadow: '0 1px 4px #0001',
+                         letterSpacing: '-0.5px',
+                         border: 'none',
+                         transition: 'background 0.18s',
+                       }}
+                       title={`주제: ${planData[ymd].주제 || planData[ymd].목표}\n목표: ${planData[ymd].목표}\n설명: ${planData[ymd].설명 || '설명 없음'}\n분야: ${planData[ymd].분야}`}
+                     >
+                       {displayText}
+                     </span>
+                   );
+                 }
+                 return null;
+               }}
               tileClassName={({ date, view }) => {
                 const ymd = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
                 if (ymd === todayStr) return 'calendar-today-minimal';
@@ -189,19 +245,30 @@ function CalendarPage() {
           <FaPlusCircle style={{ color: 'var(--color-primary)', marginRight: 6, fontSize: 19, verticalAlign: '-2px' }} />
           날짜를 클릭해 계획을 추가하거나 수정하세요.
         </div>
-        <ModalCard open={editOpen} onClose={() => setEditOpen(false)} title={selectedDate + ' 학습 계획'}>
-          <div style={{ marginBottom: 22 }}>
-            <label style={{ fontWeight: 700, marginBottom: 8, display: 'block', fontSize: 17, color: 'var(--color-primary)' }}>목표</label>
-            <input type="text" value={editGoal} onChange={e => setEditGoal(e.target.value)} style={{ width: '100%', padding: 14, borderRadius: 10, border: '1.5px solid var(--card-border)', fontSize: 17, background: 'var(--input-bg)' }} />
-          </div>
-          <div style={{ marginBottom: 22 }}>
-            <label style={{ fontWeight: 700, marginBottom: 8, display: 'block', fontSize: 17, color: 'var(--color-primary)' }}>분야</label>
-            <select value={editField} onChange={e => setEditField(e.target.value)} style={{ width: '100%', padding: 14, borderRadius: 10, border: '1.5px solid var(--card-border)', fontSize: 17, background: 'var(--input-bg)' }}>
-              {분야목록.map(f => (
-                <option key={f} value={f}>{f}</option>
-              ))}
-            </select>
-          </div>
+                 <ModalCard open={editOpen} onClose={() => setEditOpen(false)} title={selectedDate + ' 학습 계획'}>
+                       <div style={{ marginBottom: 22 }}>
+              <label style={{ fontWeight: 700, marginBottom: 8, display: 'block', fontSize: 17, color: 'var(--color-primary)' }}>주제</label>
+              <input type="text" value={editTopic} onChange={e => setEditTopic(e.target.value)} style={{ width: '100%', padding: 14, borderRadius: 10, border: '1.5px solid var(--card-border)', fontSize: 17, background: 'var(--input-bg)' }} />
+            </div>
+            
+            <div style={{ marginBottom: 22 }}>
+              <label style={{ fontWeight: 700, marginBottom: 8, display: 'block', fontSize: 17, color: 'var(--color-primary)' }}>목표</label>
+              <input type="text" value={editGoal} onChange={e => setEditGoal(e.target.value)} style={{ width: '100%', padding: 14, borderRadius: 10, border: '1.5px solid var(--card-border)', fontSize: 17, background: 'var(--input-bg)' }} />
+            </div>
+            
+            <div style={{ marginBottom: 22 }}>
+              <label style={{ fontWeight: 700, marginBottom: 8, display: 'block', fontSize: 17, color: 'var(--color-primary)' }}>설명</label>
+              <textarea value={editDescription} onChange={e => setEditDescription(e.target.value)} style={{ width: '100%', padding: 14, borderRadius: 10, border: '1.5px solid var(--card-border)', fontSize: 17, background: 'var(--input-bg)', minHeight: 80, resize: 'vertical' }} />
+            </div>
+            
+            <div style={{ marginBottom: 22 }}>
+              <label style={{ fontWeight: 700, marginBottom: 8, display: 'block', fontSize: 17, color: 'var(--color-primary)' }}>분야</label>
+              <select value={editField} onChange={e => setEditField(e.target.value)} style={{ width: '100%', padding: 14, borderRadius: 10, border: '1.5px solid var(--card-border)', fontSize: 17, background: 'var(--input-bg)' }}>
+                {분야목록.map(f => (
+                  <option key={f} value={f}>{f}</option>
+                ))}
+              </select>
+            </div>
           <div style={{ display: 'flex', gap: 12 }}>
             <button onClick={handlePlanSave} style={{ flex: 1, padding: 14, borderRadius: 12, background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))', color: 'var(--color-bg)', border: 'none', fontWeight: 'bold', fontSize: 18, marginTop: 8, boxShadow: '0 1px 4px var(--card-shadow)', letterSpacing: '-0.5px' }}>저장</button>
             {planData[selectedDate] && (
@@ -212,7 +279,12 @@ function CalendarPage() {
         {/* 오늘 계획 강조 (있으면) */}
         {planData[todayStr] && (
           <div style={{ marginTop: 32, background: 'linear-gradient(90deg, var(--color-secondary), var(--color-primary), var(--color-secondary))', borderRadius: 16, boxShadow: '0 1px 8px var(--card-shadow)', padding: '1.2rem 1.5rem', textAlign: 'center', fontWeight: 700, color: 'var(--color-primary)', fontSize: 18 }}>
-            오늘의 계획: <span style={{ color: 'var(--color-primary)' }}>{planData[todayStr].목표}</span> <span style={{ color: 'var(--color-text)', fontWeight: 500, fontSize: 15 }}>({planData[todayStr].분야})</span>
+            오늘의 계획: <span style={{ color: 'var(--color-primary)' }}>{planData[todayStr].주제 || planData[todayStr].목표}</span> <span style={{ color: 'var(--color-text)', fontWeight: 500, fontSize: 15 }}>({planData[todayStr].분야})</span>
+            {planData[todayStr].설명 && (
+              <div style={{ marginTop: 8, fontSize: 14, color: 'var(--color-text)', fontWeight: 500 }}>
+                {planData[todayStr].설명}
+              </div>
+            )}
           </div>
         )}
       </div>

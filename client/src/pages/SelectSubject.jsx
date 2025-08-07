@@ -17,14 +17,73 @@ function SelectSubject() {
 
   const detailOptions = {
     english: [
+      // 기본 영어 스킬
       { id: 'conversation', name: '회화', description: '실생활/비즈니스 회화', icon: '🗣️' },
       { id: 'grammar', name: '문법', description: '영문법 핵심', icon: '📚' },
-      { id: 'vocab', name: '단어', description: '어휘력 향상', icon: '📝' }
+      { id: 'vocab', name: '단어', description: '어휘력 향상', icon: '📝' },
+      { id: 'listening', name: '리스닝', description: '듣기 실력 향상', icon: '👂' },
+      { id: 'reading', name: '리딩', description: '독해 능력 향상', icon: '📖' },
+      { id: 'writing', name: '라이팅', description: '영작문 실력', icon: '✍️' },
+      
+      // 시험 영어
+      { id: 'toeic', name: 'TOEIC', description: '토익 시험 준비', icon: '📊' },
+      { id: 'toefl', name: 'TOEFL', description: '토플 시험 준비', icon: '🎓' },
+      { id: 'ielts', name: 'IELTS', description: '아이엘츠 시험 준비', icon: '🌍' },
+      { id: 'opic', name: 'OPIc', description: '오픽 시험 준비', icon: '🎤' },
+      { id: 'teps', name: 'TEPS', description: '텝스 시험 준비', icon: '📋' },
+      
+      // 특화 영어
+      { id: 'business', name: '비즈니스 영어', description: '업무용 영어', icon: '💼' },
+      { id: 'academic', name: '학술 영어', description: '학문적 영어', icon: '🎓' },
+      { id: 'literature', name: '영문학', description: '영어 문학 작품', icon: '📚' },
+      { id: 'presentation', name: '프레젠테이션', description: '영어 발표 스킬', icon: '🎤' }
     ],
     coding: [
-      { id: 'python', name: '파이썬', description: 'Python 기초/활용', icon: '🐍' },
-      { id: 'javascript', name: '자바스크립트', description: '웹/프론트엔드 JS', icon: '✨' },
-      { id: 'html', name: 'HTML', description: '웹의 뼈대, HTML', icon: '🌐' }
+      // 웹 개발
+      { id: 'javascript', name: 'JavaScript', description: '웹/프론트엔드 JS', icon: '✨' },
+      { id: 'typescript', name: 'TypeScript', description: '타입 안전한 JS', icon: '🔷' },
+      { id: 'react', name: 'React', description: '리액트 프레임워크', icon: '⚛️' },
+      { id: 'vue', name: 'Vue.js', description: '뷰 프레임워크', icon: '💚' },
+      { id: 'html', name: 'HTML', description: '웹의 뼈대, HTML', icon: '🌐' },
+      { id: 'css', name: 'CSS', description: '웹 스타일링', icon: '🎨' },
+      { id: 'nodejs', name: 'Node.js', description: '서버사이드 JS', icon: '🟢' },
+      { id: 'express', name: 'Express.js', description: 'Node.js 웹 프레임워크', icon: '🚀' },
+      
+      // 프로그래밍 언어
+      { id: 'python', name: 'Python', description: 'Python 기초/활용', icon: '🐍' },
+      { id: 'java', name: 'Java', description: '자바 프로그래밍', icon: '☕' },
+      { id: 'c', name: 'C/C++', description: '시스템 프로그래밍', icon: '⚙️' },
+      { id: 'csharp', name: 'C#', description: '마이크로소프트 언어', icon: '🔷' },
+      { id: 'go', name: 'Go', description: '구글의 시스템 언어', icon: '🔵' },
+      { id: 'rust', name: 'Rust', description: '메모리 안전 언어', icon: '🦀' },
+      { id: 'php', name: 'PHP', description: '웹 서버 언어', icon: '🐘' },
+      { id: 'ruby', name: 'Ruby', description: '루비 프로그래밍', icon: '💎' },
+      
+      // 프레임워크 & 라이브러리
+      { id: 'django', name: 'Django', description: 'Python 웹 프레임워크', icon: '🎯' },
+      { id: 'flask', name: 'Flask', description: 'Python 마이크로 프레임워크', icon: '🍶' },
+      { id: 'spring', name: 'Spring Boot', description: '자바 스프링 프레임워크', icon: '🍃' },
+      { id: 'laravel', name: 'Laravel', description: 'PHP 웹 프레임워크', icon: '🔥' },
+      { id: 'rails', name: 'Ruby on Rails', description: '루비 웹 프레임워크', icon: '💎' },
+      
+      // 모바일 & 앱 개발
+      { id: 'swift', name: 'Swift', description: 'iOS 앱 개발', icon: '🍎' },
+      { id: 'kotlin', name: 'Kotlin', description: '안드로이드 개발', icon: '🟠' },
+      { id: 'flutter', name: 'Flutter', description: '크로스플랫폼 앱', icon: '🦋' },
+      { id: 'reactnative', name: 'React Native', description: '리액트 네이티브', icon: '📱' },
+      
+      // 데이터 & AI
+      { id: 'pandas', name: 'Pandas', description: '데이터 분석 라이브러리', icon: '🐼' },
+      { id: 'numpy', name: 'NumPy', description: '수치 계산 라이브러리', icon: '🔢' },
+      { id: 'tensorflow', name: 'TensorFlow', description: '머신러닝 프레임워크', icon: '🧠' },
+      { id: 'sql', name: 'SQL', description: '데이터베이스 쿼리', icon: '🗄️' },
+      
+      // 인프라 & 도구
+      { id: 'aws', name: 'AWS', description: '아마존 클라우드 서비스', icon: '☁️' },
+      { id: 'docker', name: 'Docker', description: '컨테이너 기술', icon: '🐳' },
+      { id: 'kubernetes', name: 'Kubernetes', description: '컨테이너 오케스트레이션', icon: '⚓' },
+      { id: 'git', name: 'Git', description: '버전 관리 시스템', icon: '📝' },
+      { id: 'linux', name: 'Linux', description: '리눅스 시스템 관리', icon: '🐧' }
     ]
   };
 
@@ -71,7 +130,7 @@ function SelectSubject() {
                 state: {
                     subject: selectedSubject,
                     detail: selectedDetail,
-                    level: selectedLevel
+                    level: selectedLevel,
                 }
             });
         } catch (err) {
@@ -80,26 +139,27 @@ function SelectSubject() {
         }
     };
 
-    useEffect(() => {
-        if (!user) return;
+    // 기존 사용자 필드 체크 로직 제거 - 새로운 학습 생성을 위해 항상 진행 가능하도록 함
+    // useEffect(() => {
+    //     if (!user) return;
 
-        (async () => {
-            try {
-                const { data } = await axios.get('/api/user-fields', {
-                    params: { user_id: user.user_id }
-                });
-                if (data.length > 0) {
-                    navigate('/dashboard', { replace: true });
-                }
-            } catch (err) {
-                console.error('user_fields 조회 실패', err);
-            }
-        })();
-    }, [user, navigate]);
+    //     (async () => {
+    //         try {
+    //             const { data } = await axios.get('/api/users/user-fields', {
+    //                 params: { user_id: user.user_id }
+    //             });
+    //             if (data.length > 0) {
+    //                 navigate('/dashboard', { replace: true });
+    //             }
+    //         } catch (err) {
+    //             console.error('user_fields 조회 실패', err);
+    //         }
+    //     })();
+    // }, [user, navigate]);
 
   return (
     <div style={{ minHeight: '100vh', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
-      <div style={{ background: 'white', borderRadius: 24, boxShadow: '0 8px 32px rgba(102,126,234,0.10)', padding: '2.5rem 2rem', maxWidth: 520, width: '100%' }}>
+      <div style={{ background: 'white', borderRadius: 24, boxShadow: '0 8px 32px rgba(102,126,234,0.10)', padding: '2.5rem 2rem', maxWidth: 800, width: '100%' }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{ fontSize: 26, fontWeight: 800, marginBottom: 8, background: '#111', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             학습 분야 선택
@@ -143,31 +203,42 @@ function SelectSubject() {
             <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 16, color: '#764ba2', textAlign: 'center' }}>
               세부 분야 선택
             </div>
-            <div style={{ display: 'flex', gap: '1.2rem', justifyContent: 'center' }}>
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', 
+              gap: '1rem', 
+              maxHeight: '400px', 
+              overflowY: 'auto',
+              padding: '0.5rem'
+            }}>
               {detailOptions[selectedSubject].map((detail) => (
                 <div
                   key={detail.id}
                   onClick={() => handleDetailSelect(detail.id)}
                   style={{
-                    padding: '1.2rem',
+                    padding: '1rem 0.8rem',
                     border: selectedDetail === detail.id ? '3px solid #764ba2' : '1.5px solid #e0e7ff',
-                    borderRadius: '14px',
+                    borderRadius: '12px',
                     cursor: 'pointer',
                     background: selectedDetail === detail.id ? 'linear-gradient(90deg,#f3e8ff,#ede9fe)' : '#f8f9fa',
                     transition: 'all 0.2s',
-                    minWidth: 100,
                     textAlign: 'center',
                     fontWeight: 600,
-                    fontSize: 16,
+                    fontSize: 14,
                     color: selectedDetail === detail.id ? '#333' : '#555',
                     boxShadow: selectedDetail === detail.id ? '0 2px 12px #764ba222' : 'none',
-                    position: 'relative'
+                    position: 'relative',
+                    minHeight: '100px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    alignItems: 'center'
                   }}
                 >
-                  <div style={{ fontSize: 26, marginBottom: 6 }}>{detail.icon}</div>
-                  {detail.name}
-                  <div style={{ color: '#888', fontSize: 13, marginTop: 6 }}>{detail.description}</div>
-                  {selectedDetail === detail.id && <div style={{ position: 'absolute', top: 8, right: 14, color: '#764ba2', fontSize: 16 }}>✓</div>}
+                  <div style={{ fontSize: 24, marginBottom: 4 }}>{detail.icon}</div>
+                  <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2 }}>{detail.name}</div>
+                  <div style={{ color: '#888', fontSize: 11, lineHeight: '1.2' }}>{detail.description}</div>
+                  {selectedDetail === detail.id && <div style={{ position: 'absolute', top: 6, right: 8, color: '#764ba2', fontSize: 14 }}>✓</div>}
                 </div>
               ))}
             </div>

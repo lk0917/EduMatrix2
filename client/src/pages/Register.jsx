@@ -69,9 +69,9 @@ function Register() {
       newErrors.confirmPassword = '비밀번호가 일치하지 않습니다';
     }
     
-    if (formData.interests.length === 0) {
+    /* if (formData.interests.length === 0) {
       newErrors.interests = '최소 하나의 관심 분야를 선택해주세요';
-    }
+    } */
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;

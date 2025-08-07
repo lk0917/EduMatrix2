@@ -50,6 +50,7 @@ function Dashboard() {
   const [weeklyPressed, handleWeeklyPress] = useCardAnimation();
   const [notePressed, handleNotePress] = useCardAnimation();
   const [quizPressed, handleQuizPress] = useCardAnimation();
+  const [newLearningPressed, handleNewLearningPress] = useCardAnimation();
 
   // Study plan states (sample)
   const [editOpen, setEditOpen] = useState(false);
@@ -127,7 +128,8 @@ const getWeeklySummary = () => {
   const date = parseLocalDate(p.date);
   return {
     day: weekdayNames[date.getDay()],
-    field: p.field
+    field: p.field,
+    topic: p.topic
   };
 });
 };
@@ -299,20 +301,52 @@ const getWeeklySummary = () => {
       </div>
       {/* Dashboard Body (padding equal to navbar height) */}
       <div style={{
-        maxWidth: 1200,
+        maxWidth: 1400,
         margin: '0 auto',
         paddingTop: 90,
         paddingBottom: 40,
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
-        gap: 36,
+        paddingLeft: 24,
+        paddingRight: 24,
         color: 'var(--color-text)'
       }}>
-        {/* Left Column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 36 }}>
-          {/* Learning Progress */}
+        {/* Main Grid Layout */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 32,
+          marginBottom: 32
+        }}>
+          {/* 새로운 학습 시작 - 왼쪽 상단 */}
           <div
-            style={{ ...cardStyle('#667eea', progressPressed), ...getHoverStyle('progress', '#667eea'), minHeight: 200 }}
+            style={{ ...cardStyle('#9c27b0', newLearningPressed), ...getHoverStyle('newLearning', '#9c27b0'), gridRow: 'span 1' }}
+            onMouseEnter={() => setHovered('newLearning')}
+            onMouseLeave={() => setHovered('')}
+            onMouseDown={e => e.preventDefault()}
+            onClick={() => handleNewLearningPress(() => navigate('/subject'))}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <span style={{ fontSize: 28, color: '#9c27b0' }}>🚀</span>
+              <span style={{ fontWeight: 800, fontSize: 20, color: '#9c27b0' }}>새로운 학습 시작</span>
+            </div>
+            <div style={{ fontSize: 16, marginBottom: 16 }}>AI가 맞춤형 학습 계획을 만들어드립니다</div>
+            <div style={{ display: 'flex', gap: 12 }}>
+              {[
+                { title: '목표 설정', desc: '학습 목표와 기간 설정', icon: '🎯', color: '#e91e63' },
+                { title: '수준 체크', desc: 'AI 퀴즈로 현재 수준 파악', icon: '📝', color: '#2196f3' },
+                { title: '계획 생성', desc: '맞춤형 학습 계획 생성', icon: '📋', color: '#4caf50' }
+              ].map((step, idx) => (
+                <div key={idx} style={{ background: 'var(--card-bg)', borderRadius: 12, padding: '1rem 0.8rem', flex: 1, textAlign: 'center', boxShadow: '0 1px 4px #eee' }}>
+                  <div style={{ fontSize: 24, marginBottom: 6 }}>{step.icon}</div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: step.color }}>{step.title}</div>
+                  <div style={{ color: 'var(--color-text)', fontSize: 12, marginTop: 2 }}>{step.desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 학습 진행률 - 오른쪽 상단 */}
+          <div
+            style={{ ...cardStyle('#667eea', progressPressed), ...getHoverStyle('progress', '#667eea'), gridRow: 'span 1' }}
             onMouseEnter={() => setHovered('progress')}
             onMouseLeave={() => setHovered('')}
             onMouseDown={e => e.preventDefault()}
@@ -322,54 +356,160 @@ const getWeeklySummary = () => {
               <span style={{ fontSize: 28, color: '#667eea' }}>📈</span>
               <span style={{ fontWeight: 800, fontSize: 20, color: '#667eea' }}>학습 진행률</span>
             </div>
-            <div style={{ fontSize: 16, marginBottom: 10 }}>이번 주 목표 달성률</div>
-            <div style={{ width: '100%', height: 18, background: '#f0f0f0', borderRadius: 10, overflow: 'hidden', marginBottom: 8 }}>
-              <div style={{  width: `${progress?.total || 0}%`, height: '100%', background: 'linear-gradient(90deg,#667eea,#764ba2)', transition: 'width 0.4s' }} />
+            <div style={{ fontSize: 16, marginBottom: 12 }}>이번 주 목표 달성률</div>
+            <div style={{ width: '100%', height: 16, background: '#f0f0f0', borderRadius: 10, overflow: 'hidden', marginBottom: 8 }}>
+              <div style={{ width: `${progress?.total || 0}%`, height: '100%', background: 'linear-gradient(90deg,#667eea,#764ba2)', transition: 'width 0.4s' }} />
             </div>
-            <div style={{ fontWeight: 700, color: '#333', fontSize: 16, marginBottom: 10 }}>{progress?.total || 0}% 달성<span style={{ color: '#4caf50', fontWeight: 600, fontSize: 14, marginLeft: 8 }}>+5% ↑</span></div>
+            <div style={{ fontWeight: 700, color: '#333', fontSize: 16, marginBottom: 12 }}>{progress?.total || 0}% 달성<span style={{ color: '#4caf50', fontWeight: 600, fontSize: 14, marginLeft: 8 }}>+5% ↑</span></div>
             {/* Subject-wise mini progress */}
-            <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
             {(progress?.subject_stats || []).map((item) => (
             <div key={item.name} style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, color: 'var(--color-text)', fontWeight: 600, marginBottom: 2 }}>{item.name}</div>
-            <div style={{ width: '100%', height: 8, background: '#f0f0f0', borderRadius: 6, overflow: 'hidden', marginBottom: 2 }}>
+            <div style={{ fontSize: 12, color: 'var(--color-text)', fontWeight: 600, marginBottom: 2 }}>{item.name}</div>
+            <div style={{ width: '100%', height: 6, background: '#f0f0f0', borderRadius: 4, overflow: 'hidden', marginBottom: 2 }}>
             <div style={{ width: `${item.percent}%`, height: '100%', background: item.color, transition: 'width 0.4s' }} />
             </div>
-            <div style={{ fontSize: 12, color: item.color, fontWeight: 700 }}>{item.percent}%</div>
+            <div style={{ fontSize: 11, color: item.color, fontWeight: 700 }}>{item.percent}%</div>
             </div>
             ))}
           </div>
-            <div style={{ fontSize: 13, color: 'var(--color-text)', marginTop: 2 }}>
+            <div style={{ fontSize: 12, color: 'var(--color-text)', marginTop: 2 }}>
               목표 대비 실제 학습량: <b>{progress?.total || 0}%</b> / 예상 달성일: <b>{progress?.expected_date || '-'}</b>
             </div>
           </div>
-          {/* Learning Plan Calendar */}
+        </div>
+
+        {/* Second Row */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr 1fr',
+          gap: 32,
+          marginBottom: 32
+        }}>
+          {/* Learning Plan Calendar - 왼쪽 */}
           <div
-            style={{ ...cardStyle('#764ba2', calendarPressed), ...getHoverStyle('calendar', '#764ba2'), minHeight: 180, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: 'var(--card-bg)', boxShadow: '0 4px 18px #b39ddb22' }}
+            style={{ ...cardStyle('#764ba2', calendarPressed), ...getHoverStyle('calendar', '#764ba2'), display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: 'var(--card-bg)', boxShadow: '0 4px 18px #b39ddb22' }}
             onMouseEnter={() => setHovered('calendar')}
             onMouseLeave={() => setHovered('')}
             onMouseDown={e => e.preventDefault()}
             onClick={() => handleCalendarPress(() => navigate('/dashboard/calendar'))}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-              <span style={{ fontSize: 28, color: '#764ba2' }}>🗓️</span>
-              <span style={{ fontWeight: 800, fontSize: 20, color: '#764ba2' }}>학습 계획 캘린더</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              <span style={{ fontSize: 24, color: '#764ba2' }}>🗓️</span>
+              <span style={{ fontWeight: 800, fontSize: 18, color: '#764ba2' }}>학습 계획 캘린더</span>
             </div>
-            <div style={{ width: '100%', textAlign: 'center', marginBottom: 8, color: 'var(--color-text)', fontSize: 15 }}>
+            <div style={{ width: '100%', textAlign: 'center', marginBottom: 8, color: 'var(--color-text)', fontSize: 14 }}>
               이번 주 계획 요약
             </div>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', width: '100%' }}>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', width: '100%' }}>
             {getWeeklySummary().map((item, idx) => (
-            <div key={idx} style={{ background: 'var(--card-bg)', borderRadius: 10, boxShadow: '0 1px 4px #e0c3fc33', padding: '0.7rem 1.1rem', minWidth: 60, textAlign: 'center', fontWeight: 700, color: '#764ba2', fontSize: 15 }}>
-            <div style={{ fontSize: 13, color: '#aaa', fontWeight: 600 }}>{item.day}</div>
-            <div>{item.field}</div>
+            <div key={idx} style={{ background: 'var(--card-bg)', borderRadius: 8, boxShadow: '0 1px 4px #e0c3fc33', padding: '0.5rem 0.8rem', minWidth: 50, textAlign: 'center', fontWeight: 700, color: '#764ba2', fontSize: 13 }}>
+            <div style={{ fontSize: 11, color: '#aaa', fontWeight: 600 }}>{item.day}</div>
+            <div style={{ fontSize: 10, color: '#666' }}>{item.topic || item.field}</div>
             </div>
               ))}
             </div>
-            <div style={{ marginTop: 14, fontSize: 13, color: 'var(--color-text)' }}>
+            <div style={{ marginTop: 12, fontSize: 12, color: 'var(--color-text)' }}>
               클릭 시 전체 캘린더로 이동
             </div>
           </div>
+          {/* 추천 학습 목록 - 중앙 */}
+          <div
+            style={{ ...cardStyle('#2196f3', recommendPressed), ...getHoverStyle('recommend', '#2196f3') }}
+            onMouseEnter={() => setHovered('recommend')}
+            onMouseLeave={() => setHovered('')}
+            onMouseDown={e => e.preventDefault()}
+            onClick={() => handleRecommendPress(() => navigate('/dashboard/recommend'))}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <span style={{ fontSize: 24, color: '#2196f3' }}>🌟</span>
+              <span style={{ fontWeight: 800, fontSize: 18, color: '#2196f3' }}>추천 학습 목록</span>
+            </div>
+            <div style={{ display: 'flex', gap: 12 }}>
+              {[
+                { title: '파이썬 기초 문법', desc: '초보자를 위한 Python 입문 강의', icon: '🐍' },
+                { title: '영어 회화 실전', desc: '실생활 영어 표현 익히기', icon: '🗣️' },
+                { title: 'HTML/CSS 실습', desc: '웹 페이지 직접 만들어보기', icon: '🌐' }
+              ].map((rec, idx) => (
+                <div key={idx} style={{ background: 'var(--card-bg)', borderRadius: 12, padding: '1rem 0.8rem', minWidth: 100, flex: 1, textAlign: 'center', boxShadow: '0 1px 4px #eee' }}>
+                  <div style={{ fontSize: 24, marginBottom: 6 }}>{rec.icon}</div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{rec.title}</div>
+                  <div style={{ color: 'var(--color-text)', fontSize: 12, marginTop: 4 }}>{rec.desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 주간 최종 평가 - 오른쪽 */}
+          <div
+            style={{ ...cardStyle('#ff9800', weeklyPressed), ...getHoverStyle('weekly', '#ff9800') }}
+            onMouseEnter={() => setHovered('weekly')}
+            onMouseLeave={() => setHovered('')}
+            onMouseDown={e => e.preventDefault()}
+            onClick={() => handleWeeklyPress(() => navigate('/dashboard/weekly'))}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <span style={{ fontSize: 24, color: '#ff9800' }}>🏆</span>
+              <span style={{ fontWeight: 800, fontSize: 18, color: '#ff9800' }}>주간 최종 평가</span>
+            </div>
+            <div style={{ fontSize: 15, marginBottom: 10 }}>이번 주 점수: <span style={{ fontWeight: 700, color: '#667eea' }}>7 / 10</span></div>
+            <div style={{ color: 'var(--color-text)', fontSize: 14 }}>이번 주 꾸준히 학습했어요! 다음 주엔 실전 문제에 도전해보세요.</div>
+          </div>
+        </div>
+
+        {/* Third Row */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 32
+        }}>
+          {/* 스터디 노트 - 왼쪽 */}
+          <div
+            style={{ ...cardStyle('#4caf50', notePressed), ...getHoverStyle('note', '#4caf50') }}
+            onMouseEnter={() => setHovered('note')}
+            onMouseLeave={() => setHovered('')}
+            onMouseDown={e => e.preventDefault()}
+            onClick={() => handleNotePress(() => navigate('/dashboard/note'))}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <span style={{ fontSize: 24, color: '#4caf50' }}>📝</span>
+              <span style={{ fontWeight: 800, fontSize: 18, color: '#4caf50' }}>스터디 노트</span>
+            </div>
+            <textarea
+              value={'오늘 배운 내용을 간단히 정리해보세요!'}
+              readOnly
+              style={{ width: '100%', minHeight: 80, borderRadius: 10, border: '1.5px solid #e0e7ff', padding: '1rem', fontSize: 14, resize: 'vertical', background: 'var(--card-bg)', color: 'var(--color-text)', fontWeight: 500 }}
+              placeholder="오늘 배운 내용을 간단히 정리해보세요!"
+            />
+          </div>
+
+          {/* 퀴즈 바로가기 - 오른쪽 */}
+          <div
+            style={{ ...cardStyle('#e74c3c', quizPressed), ...getHoverStyle('quiz', '#e74c3c') }}
+            onMouseEnter={() => setHovered('quiz')}
+            onMouseLeave={() => setHovered('')}
+            onMouseDown={e => e.preventDefault()}
+            onClick={() => handleQuizPress(() => navigate('/dashboard/quiz'))}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <span style={{ fontSize: 24, color: '#e74c3c' }}>❓</span>
+              <span style={{ fontWeight: 800, fontSize: 18, color: '#e74c3c' }}>퀴즈 바로가기</span>
+            </div>
+            <div style={{ display: 'flex', gap: 12 }}>
+              {[
+                { title: '파이썬 퀴즈', desc: 'Python 기초 문법 테스트', icon: '🐍', color: '#3776ab' },
+                { title: '영어 퀴즈', desc: '영어 문법 및 어휘 테스트', icon: '🇺🇸', color: '#ff9800' },
+                { title: '웹 개발 퀴즈', desc: 'HTML/CSS/JS 기초 테스트', icon: '🌐', color: '#2196f3' }
+              ].map((quiz, idx) => (
+                <div key={idx} style={{ background: 'var(--card-bg)', borderRadius: 12, padding: '1rem 0.8rem', minWidth: 100, flex: 1, textAlign: 'center', boxShadow: '0 1px 4px #eee' }}>
+                  <div style={{ fontSize: 24, marginBottom: 6 }}>{quiz.icon}</div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: quiz.color }}>{quiz.title}</div>
+                  <div style={{ color: 'var(--color-text)', fontSize: 12, marginTop: 4 }}>{quiz.desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
           {/* Plan Edit Modal */}
           <ModalCard open={editOpen} onClose={() => setEditOpen(false)} title={'학습 계획 수정'}>
             <div style={{ marginBottom: 16 }}>
@@ -386,95 +526,6 @@ const getWeeklySummary = () => {
             </div>
             <button onClick={handlePlanSave} style={{ width: '100%', padding: 10, borderRadius: 8, background: 'linear-gradient(90deg,#8ec5fc,#e0c3fc)', color: '#fff', border: 'none', fontWeight: 'bold', fontSize: 16, marginTop: 8 }}>저장</button>
           </ModalCard>
-          {/* Recommended Learning List */}
-          <div
-            style={{ ...cardStyle('#2196f3', recommendPressed), ...getHoverStyle('recommend', '#2196f3') }}
-            onMouseEnter={() => setHovered('recommend')}
-            onMouseLeave={() => setHovered('')}
-            onMouseDown={e => e.preventDefault()}
-            onClick={() => handleRecommendPress(() => navigate('/dashboard/recommend'))}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-              <span style={{ fontSize: 28, color: '#2196f3' }}>🌟</span>
-              <span style={{ fontWeight: 800, fontSize: 20, color: '#2196f3' }}>추천 학습 목록</span>
-            </div>
-            <div style={{ display: 'flex', gap: 18 }}>
-              {[
-                { title: '파이썬 기초 문법', desc: '초보자를 위한 Python 입문 강의', icon: '🐍' },
-                { title: '영어 회화 실전', desc: '실생활 영어 표현 익히기', icon: '🗣️' },
-                { title: 'HTML/CSS 실습', desc: '웹 페이지 직접 만들어보기', icon: '🌐' }
-              ].map((rec, idx) => (
-                <div key={idx} style={{ background: 'var(--card-bg)', borderRadius: 12, padding: '1.2rem 1rem', minWidth: 120, flex: 1, textAlign: 'center', boxShadow: '0 1px 4px #eee' }}>
-                  <div style={{ fontSize: 28, marginBottom: 8 }}>{rec.icon}</div>
-                  <div style={{ fontWeight: 700, fontSize: 16 }}>{rec.title}</div>
-                  <div style={{ color: 'var(--color-text)', fontSize: 14, marginTop: 4 }}>{rec.desc}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-        {/* Right Column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 36 }}>
-          {/* Weekly Final Evaluation */}
-          <div
-            style={{ ...cardStyle('#ff9800', weeklyPressed), ...getHoverStyle('weekly', '#ff9800') }}
-            onMouseEnter={() => setHovered('weekly')}
-            onMouseLeave={() => setHovered('')}
-            onMouseDown={e => e.preventDefault()}
-            onClick={() => handleWeeklyPress(() => navigate('/dashboard/weekly'))}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-              <span style={{ fontSize: 28, color: '#ff9800' }}>🏆</span>
-              <span style={{ fontWeight: 800, fontSize: 20, color: '#ff9800' }}>주간 최종 평가</span>
-            </div>
-            <div style={{ fontSize: 16, marginBottom: 10 }}>이번 주 점수: <span style={{ fontWeight: 700, color: '#667eea' }}>7 / 10</span></div>
-            <div style={{ color: 'var(--color-text)', fontSize: 15 }}>이번 주 꾸준히 학습했어요! 다음 주엔 실전 문제에 도전해보세요.</div>
-          </div>
-          {/* Study Note */}
-          <div
-            style={{ ...cardStyle('#4caf50', notePressed), ...getHoverStyle('note', '#4caf50') }}
-            onMouseEnter={() => setHovered('note')}
-            onMouseLeave={() => setHovered('')}
-            onMouseDown={e => e.preventDefault()}
-            onClick={() => handleNotePress(() => navigate('/dashboard/note'))}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-              <span style={{ fontSize: 28, color: '#4caf50' }}>📝</span>
-              <span style={{ fontWeight: 800, fontSize: 20, color: '#4caf50' }}>스터디 노트</span>
-            </div>
-            <textarea
-              value={'오늘 배운 내용을 간단히 정리해보세요!'}
-              readOnly
-              style={{ width: '100%', minHeight: 80, borderRadius: 10, border: '1.5px solid #e0e7ff', padding: '1rem', fontSize: 15, resize: 'vertical', background: 'var(--card-bg)', color: 'var(--color-text)', fontWeight: 500 }}
-              placeholder="오늘 배운 내용을 간단히 정리해보세요!"
-            />
-          </div>
-          {/* Quiz Shortcut */}
-          <div
-            style={{ ...cardStyle('#e74c3c', quizPressed), ...getHoverStyle('quiz', '#e74c3c') }}
-            onMouseEnter={() => setHovered('quiz')}
-            onMouseLeave={() => setHovered('')}
-            onMouseDown={e => e.preventDefault()}
-            onClick={() => handleQuizPress(() => navigate('/dashboard/quiz'))}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-              <span style={{ fontSize: 28, color: '#e74c3c' }}>❓</span>
-              <span style={{ fontWeight: 800, fontSize: 20, color: '#e74c3c' }}>퀴즈 바로가기</span>
-            </div>
-            <div style={{ display: 'flex', gap: 18 }}>
-              {[
-                { title: '오늘의 퀴즈', desc: '영어 단어 10문제', icon: '❓' },
-                { title: '코딩 로직 퀴즈', desc: '조건문/반복문 실전', icon: '💻' }
-              ].map((quiz, idx) => (
-                <div key={idx} style={{ background: 'var(--card-bg)', borderRadius: 12, padding: '1.2rem 1rem', minWidth: 120, flex: 1, textAlign: 'center', boxShadow: '0 1px 4px #eee' }}>
-                  <div style={{ fontSize: 28, marginBottom: 8 }}>{quiz.icon}</div>
-                  <div style={{ fontWeight: 700, fontSize: 16 }}>{quiz.title}</div>
-                  <div style={{ color: 'var(--color-text)', fontSize: 14, marginTop: 4 }}>{quiz.desc}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FaBullseye, FaCalendarAlt, FaBook } from 'react-icons/fa';
+import axios from 'axios';
+import { useUser } from '../context/UserContext';
 
 const 분야목록 = [
   'JS',
@@ -16,13 +18,47 @@ function PlanInput() {
   const [시작일, set시작일] = useState('');
   const [종료일, set종료일] = useState('');
   const [분야, set분야] = useState(분야목록[0]);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useUser();
   const prevState = location.state || {};
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    navigate('/quiz', { state: { 목표, 시작일, 종료일, 분야, ...prevState } });
+    setLoading(true);
+
+    try {
+      // 서버로 학습 목표 정보 전송
+      await axios.post('/api/learning/save-learning-goal', {
+        user_id: user.user_id,
+        subject: prevState.subject,
+        detail: prevState.detail,
+        level: prevState.level,
+        goal: 목표,
+        start_date: 시작일,
+        end_date: 종료일,
+        field: 분야
+      });
+
+      navigate('/quiz', {
+        state: {
+          subject: prevState.subject,
+          detail: prevState.detail,
+          level: prevState.level,
+          목표,
+          시작일,
+          종료일,
+          분야,
+          ...prevState
+        }
+      });
+    } catch (error) {
+      console.error('학습 목표 저장 실패:', error);
+      alert('학습 목표 저장 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
