@@ -43,12 +43,21 @@ function AIChatBot({ onClose }) {
           thread_id: threadId,
         }),
       });
-      if (!res.ok) throw new Error("API 요청 실패");
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${res.status}: API 요청 실패`);
+      }
+      
       const data = await res.json();
-      if (!data?.thread_id || !data?.response) throw new Error("응답 오류");
+      if (!data?.thread_id || !data?.response) {
+        throw new Error("응답 데이터 형식이 올바르지 않습니다.");
+      }
+      
       setThreadId(data.thread_id);
       addMessage("bot", data.response);
     } catch (err) {
+      console.error("챗봇 오류:", err);
       addMessage("bot", err.message || "죄송합니다. 응답에 실패했습니다.");
     } finally {
       setIsTyping(false);

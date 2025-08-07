@@ -35,7 +35,9 @@ async function handleChat(req, res) {
 
     // run.status가 completed인지 확인
     if (run.status !== "completed") {
-      return res.status(500).send("Assistant 실행 실패");
+      return res
+        .status(500)
+        .json({ error: "Assistant 실행 실패", status: run.status });
     }
 
     // 마지막 Assistant 메시지 가져오기
@@ -54,11 +56,11 @@ async function handleChat(req, res) {
         thread_id: threadId,
       });
     } else {
-      return res.status(500).send("Assistant가 응답을 제공하지 않았습니다.");
+      return res.status(500).json({ error: "Assistant가 응답을 제공하지 않았습니다." });
     }
   } catch (error) {
-    console.error(error);
-    return res.status(500).send("오류 발생");
+    console.error("챗봇 오류:", error);
+    return res.status(500).json({ error: "서버 오류가 발생했습니다." });
   }
 }
 
