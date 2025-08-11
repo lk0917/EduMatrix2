@@ -12,9 +12,7 @@ import TableCell from '@tiptap/extension-table-cell';
 import TableHeader from '@tiptap/extension-table-header';
 import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
-import BulletList from '@tiptap/extension-bullet-list';
-import OrderedList from '@tiptap/extension-ordered-list';
-import ListItem from '@tiptap/extension-list-item';
+// BulletList, OrderedList, ListItem은 StarterKit에 포함되어 있으므로 별도 import 불필요
 import 'highlight.js/styles/github.css';
 import { useTheme } from '../context/ThemeContext';
 import axios from 'axios';
@@ -87,11 +85,16 @@ export default function NoteDetail() {
     const [date, setDate] = useState('');
     const [codeBlockPos, setCodeBlockPos] = useState(null);
     const [codeBlockLang, setCodeBlockLang] = useState(null);
+    const editorWrapperRef = useRef(null);
+    const [slashMenu, setSlashMenu] = useState({ open: false, query: '', index: 0, coords: { left: 0, top: 0 } });
     const [tablePopover, setTablePopover] = useState({ visible: false, x: 0, y: 0 });
     const popoverRef = useRef();
     const editor = useEditor({
         extensions: [
-            StarterKit,
+            StarterKit.configure({
+                // StarterKit에서 기본 CodeBlock을 비활성화하여 CodeBlockLowlight 사용
+                codeBlock: false,
+            }),
             TaskList,
             TaskItem,
             CodeBlockLowlight.configure({ lowlight }),
@@ -101,15 +104,30 @@ export default function NoteDetail() {
             TableHeader,
             Image,
             Link.configure({ openOnClick: true }),
-            BulletList,
-            OrderedList,
-            ListItem,
+            // BulletList, OrderedList, ListItem은 StarterKit에 포함되어 있으므로 제거
         ],
         content: '<h1>스터디 노트</h1><p>여기에 자유롭게 작성하세요!</p>',
         autofocus: true,
         editorProps: {
             attributes: {
                 style: 'min-height:400px; background:#fafbfc; border-radius:12px; box-shadow:0 2px 8px #e0e7ff33; padding:1.5rem 1.2rem; font-size:16px; max-width:100%; margin:0 auto;',
+            },
+            handleKeyDown: (view, event) => {
+                if (event.key === '/' && !slashMenu.open) {
+                    event.preventDefault();
+                    const { from } = view.state.selection;
+                    const coords = view.coordsAtPos(from);
+                    const wrapper = editorWrapperRef.current?.getBoundingClientRect();
+                    const left = wrapper ? coords.left - wrapper.left : coords.left;
+                    const top = wrapper ? coords.bottom - wrapper.top + 6 : coords.bottom + 6;
+                    setSlashMenu({ open: true, query: '', index: 0, coords: { left, top } });
+                    return true;
+                }
+                if (event.key === 'Escape' && slashMenu.open) {
+                    setSlashMenu(s => ({ ...s, open: false }));
+                    return true;
+                }
+                return false;
             },
         },
         onUpdate: ({ editor }) => {
@@ -125,6 +143,17 @@ export default function NoteDetail() {
             } else {
                 setCodeBlockPos(null);
                 setCodeBlockLang(null);
+            }
+            // 슬래시 메뉴 위치 추적
+            if (slashMenu.open) {
+                try {
+                    const { from } = editor.state.selection;
+                    const coords = editor.view.coordsAtPos(from);
+                    const wrapper = editorWrapperRef.current?.getBoundingClientRect();
+                    const left = wrapper ? coords.left - wrapper.left : coords.left;
+                    const top = wrapper ? coords.bottom - wrapper.top + 6 : coords.bottom + 6;
+                    setSlashMenu(s => ({ ...s, coords: { left, top } }));
+                } catch {}
             }
         },
     });
@@ -195,6 +224,56 @@ export default function NoteDetail() {
         tr.setNodeMarkup(codeBlockPos, undefined, { language: lang });
         return true;
       }).run();
+    }
+  };
+
+  const SLASH_COMMANDS = [
+    { key: 'h1', label: '제목 1', hint: '큰 제목', icon: 'H1', run: () => editor && editor.chain().focus().toggleHeading({ level: 1 }).run() },
+    { key: 'h2', label: '제목 2', hint: '중간 제목', icon: 'H2', run: () => editor && editor.chain().focus().toggleHeading({ level: 2 }).run() },
+    { key: 'h3', label: '제목 3', hint: '작은 제목', icon: 'H3', run: () => editor && editor.chain().focus().toggleHeading({ level: 3 }).run() },
+    { key: 'bullet', label: '글머리 리스트', hint: '• 기호 리스트', icon: '•', run: () => editor && editor.chain().focus().toggleBulletList().run() },
+    { key: 'ordered', label: '번호 리스트', hint: '1. 2. 3.', icon: '1.', run: () => editor && editor.chain().focus().toggleOrderedList().run() },
+    { key: 'task', label: '체크리스트', hint: '할 일 목록', icon: '☑', run: () => editor && editor.chain().focus().toggleTaskList().run() },
+    { key: 'table', label: '표', hint: '3×3 표 삽입', icon: '▦', run: () => addTable() },
+    { key: 'image', label: '이미지', hint: '이미지 URL 삽입', icon: '🖼', run: () => addImage() },
+    { key: 'link', label: '링크', hint: '선택 영역에 링크', icon: '🔗', run: () => setLink() },
+    { key: 'code', label: '코드 블록', hint: '코드 작성', icon: '</>', run: () => editor && editor.chain().focus().toggleCodeBlock().run() },
+    { key: 'quote', label: '인용구', hint: '강조된 인용', icon: '❝', run: () => editor && editor.chain().focus().toggleBlockquote().run() },
+    { key: 'divider', label: '구분선', hint: '수평선 삽입', icon: '—', run: () => editor && editor.chain().focus().setHorizontalRule().run() },
+  ];
+
+  const filteredCommands = SLASH_COMMANDS.filter(cmd => {
+    const q = slashMenu.query?.toLowerCase() || '';
+    if (!q) return true;
+    return (
+      cmd.label.toLowerCase().includes(q) ||
+      (cmd.hint && cmd.hint.toLowerCase().includes(q)) ||
+      cmd.key.includes(q)
+    );
+  });
+
+  const runSlashCommand = (cmd) => {
+    if (!editor) return;
+    cmd.run();
+    setSlashMenu(s => ({ ...s, open: false, query: '', index: 0 }));
+    setTimeout(() => editor.commands.focus('end'), 0);
+  };
+
+  const handleSlashKey = (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSlashMenu(s => ({ ...s, index: Math.min(s.index + 1, filteredCommands.length - 1) }));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSlashMenu(s => ({ ...s, index: Math.max(s.index - 1, 0) }));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const cmd = filteredCommands[slashMenu.index] || filteredCommands[0];
+      if (cmd) runSlashCommand(cmd);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setSlashMenu(s => ({ ...s, open: false }));
+      editor && editor.commands.focus('end');
     }
   };
 
@@ -329,29 +408,7 @@ export default function NoteDetail() {
       <div style={{ color: '#888', fontSize: 15, marginBottom: 8 }}>{date}</div>
       <input value={title} onChange={e => setTitle(e.target.value)} style={{ width: '100%', maxWidth: 1000, fontWeight: 800, fontSize: 26, color: '#111', marginBottom: 18, border: '1.5px solid #e0e7ff', borderRadius: 10, padding: '1rem 1.2rem', background: '#fff' }} />
       {/* Tiptap 툴바 */}
-      <div className="tiptap-toolbar" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12, alignItems: 'center', background: '#f8f9fa', borderRadius: 12, padding: '0.8rem 1.1rem', boxShadow: '0 1px 4px #e0e7ff33', maxWidth: 1000 }}>
-        <button onClick={() => setHeading(1)} title="제목1(H1)">H1</button>
-        <button onClick={() => setHeading(2)} title="제목2(H2)">H2</button>
-        <button onClick={() => setHeading(3)} title="제목3(H3)">H3</button>
-        <button onClick={addTable} title="표 추가">표</button>
-        <button onClick={addImage} title="이미지 추가">🖼 이미지</button>
-        <button onClick={setLink} title="링크 추가">🔗 링크</button>
-        <button onClick={() => editor && editor.chain().focus().toggleBold().run()} title="굵게"><b>B</b></button>
-        <button onClick={() => editor && editor.chain().focus().toggleItalic().run()} title="기울임"><i>I</i></button>
-        <button onClick={() => editor && editor.chain().focus().toggleUnderline && editor.chain().focus().toggleUnderline().run()} title="밑줄">U</button>
-        <button onClick={() => editor && editor.chain().focus().toggleBulletList().run()} title="글머리 리스트">• 리스트</button>
-        <button onClick={() => editor && editor.chain().focus().toggleOrderedList().run()} title="번호 리스트">1. 리스트</button>
-        <button onClick={() => editor && editor.chain().focus().toggleCodeBlock().run()} title="코드블록">코드</button>
-        <button onClick={() => editor && editor.chain().focus().toggleTaskList().run()} title="체크리스트">☑ 체크</button>
-        {/* 코드블록 언어 선택 */}
-        {codeBlockPos !== null && (
-          <select value={codeBlockLang || ''} onChange={handleCodeLangChange} title="코드 언어 선택">
-            {CODE_LANGUAGES.map(lang => (
-              <option key={lang.label} value={lang.value || ''}>{lang.label}</option>
-            ))}
-          </select>
-        )}
-      </div>
+      {/* 상단 메뉴바 제거: '/' 슬래시 명령으로 대체 */}
       {/* 표 셀 팝오버 */}
       {tablePopover.visible && (
         <div
@@ -368,62 +425,119 @@ export default function NoteDetail() {
         </div>
       )}
       {/* 에디터 */}
-      <div style={{ width: '100%', maxWidth: 1000 }}>
+      <div ref={editorWrapperRef} style={{ width: '100%', maxWidth: 1000, position: 'relative' }}>
         <EditorContent editor={editor} style={{ minHeight: '50vh', maxWidth: 1000, fontSize: 18, padding: '1.2rem 1rem', background: '#fff', color: '#111', borderRadius: 12, boxShadow: '0 2px 8px #e0e7ff33', border: '1.5px solid #e0e7ff' }} />
+        {/* Slash Command Menu */}
+        {slashMenu.open && (
+          <div
+            role="listbox"
+            className="slash-menu"
+            style={{
+              position: 'absolute',
+              left: slashMenu.coords.left,
+              top: slashMenu.coords.top,
+              background: 'var(--card-bg)',
+              color: 'var(--text-main)',
+              border: '1.5px solid var(--card-border)',
+              borderRadius: 12,
+              boxShadow: '0 8px 24px var(--card-shadow)',
+              padding: '6px',
+              width: 260,
+              zIndex: 2000,
+            }}
+          >
+            <input
+              autoFocus
+              value={slashMenu.query}
+              onChange={(e) => setSlashMenu((s) => ({ ...s, query: e.target.value }))}
+              placeholder="명령 검색..."
+              style={{
+                width: '100%',
+                padding: '8px 10px',
+                borderRadius: 8,
+                border: '1.5px solid var(--card-border)',
+                background: 'var(--input-bg)',
+                color: 'var(--text-main)',
+                outline: 'none',
+                marginBottom: 6,
+                fontSize: 14,
+              }}
+              onKeyDown={handleSlashKey}
+            />
+            <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+              {filteredCommands.length === 0 && (
+                <div style={{ padding: '8px 10px', color: '#888', fontSize: 13 }}>명령 없음</div>
+              )}
+              {filteredCommands.map((cmd, idx) => (
+                <div
+                  key={cmd.key}
+                  role="option"
+                  aria-selected={idx === slashMenu.index}
+                  onMouseEnter={() => setSlashMenu((s) => ({ ...s, index: idx }))}
+                  onClick={() => runSlashCommand(cmd)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '8px 10px', borderRadius: 8,
+                    background: idx === slashMenu.index ? 'var(--accent-gradient-soft)' : 'transparent',
+                    cursor: 'pointer',
+                    fontSize: 14,
+                  }}
+                >
+                  <span style={{ width: 22, textAlign: 'center' }}>{cmd.icon}</span>
+                  <div>
+                    <div style={{ fontWeight: 700 }}>{cmd.label}</div>
+                    {cmd.hint && <div style={{ fontSize: 12, color: '#888' }}>{cmd.hint}</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ padding: '6px 8px', borderTop: '1px solid var(--card-border)', marginTop: 6, color: '#888', fontSize: 12 }}>
+              ↑↓ 이동 • Enter 선택 • Esc 닫기
+            </div>
+          </div>
+        )}
       </div>
       <button onClick={handleSave} style={{ background: 'linear-gradient(90deg,#8ec5fc,#4caf50)', color: '#fff', border: 'none', borderRadius: 8, padding: '0.7rem 1.6rem', fontWeight: 700, fontSize: 17, cursor: 'pointer', marginRight: 10, marginTop: 18 }}>저장</button>
       <button onClick={() => navigate('/dashboard/note')} style={{ background: '#eee', color: '#888', border: 'none', borderRadius: 8, padding: '0.7rem 1.6rem', fontWeight: 700, fontSize: 17, cursor: 'pointer', marginTop: 18 }}>취소</button>
       <style>{`
-        .tiptap-toolbar button, .tiptap-toolbar select {
-          background: #fff;
-          color: #111;
-        }
-        .tiptap-toolbar button:hover, .tiptap-toolbar select:hover {
-          background: #6366f1;
-          color: #fff;
-        }
-        .tiptap-toolbar button:active, .tiptap-toolbar select:active {
-          background: #4338ca;
-          color: #fff;
-        }
-        .tiptap-toolbar select {
-          background: #fff;
-          color: #111;
-          border: 1.5px solid #e0e7ff;
-        }
+        /* 상단 메뉴 제거 -> 슬래시 메뉴 사용 */
         .table-popover {
           z-index: 100;
         }
-        /* 표 스타일: 카드 배경, 카드 테두리 */
+        /* 표 스타일: 다크/라이트 대응 토큰 적용 */
         .ProseMirror table {
           border-collapse: collapse;
           width: 100%;
           margin: 1.5rem 0;
-          background: var(--card-bg);
-          border-radius: 0;
-          box-shadow: none;
+          background: var(--table-bg);
+          border-radius: 10px;
+          overflow: hidden;
+          box-shadow: 0 2px 10px var(--card-shadow);
         }
         .ProseMirror th, .ProseMirror td {
-          border: 1.5px solid var(--card-border);
+          border: 1.2px solid var(--table-border);
           padding: 0.7em 1.1em;
           min-width: 40px;
-          background: var(--card-bg);
+          background: var(--table-bg);
           cursor: pointer;
           font-size: inherit;
-          transition: background 0.15s;
-          color: var(--text-main);
+          transition: background 0.15s, color 0.15s;
+          color: var(--table-text);
         }
         .ProseMirror th {
-          background: var(--card-bg);
-          font-weight: bold;
-          color: var(--text-main);
+          background: var(--table-header-bg);
+          font-weight: 800;
+          color: var(--table-text);
         }
         .ProseMirror tr:nth-child(even) td {
-          background: var(--card-bg);
+          background: var(--table-stripe-bg);
+        }
+        .ProseMirror tr:hover td {
+          background: var(--table-hover-bg);
         }
         .ProseMirror td:focus, .ProseMirror th:focus {
-          outline: 2px solid #1976d2;
-          background: #e0c3fc33;
+          outline: 2px solid #6366f1;
+          background: var(--table-hover-bg);
         }
         /* 코드블록: 카드 배경, 진한 텍스트 */
         .ProseMirror pre {

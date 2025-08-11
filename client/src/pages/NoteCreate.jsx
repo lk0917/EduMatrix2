@@ -47,11 +47,11 @@ function NoteCreate() {
       <h2 style={{ fontWeight: 900, fontSize: 28, color: 'var(--text-main)', marginBottom: 18 }}>새 스터디 노트 작성</h2>
       <div style={{ marginBottom: 16 }}>
         <label style={{ fontWeight: 700, marginBottom: 6, display: 'block', color: 'var(--text-main)' }}>제목</label>
-        <input value={title} onChange={e => setTitle(e.target.value)} style={{ width: '100%', fontWeight: 700, fontSize: 18, color: theme === 'dark' ? '#111' : 'var(--text-main)', border: '1.5px solid var(--input-border)', borderRadius: 8, padding: '0.5rem 1rem', background: theme === 'dark' ? '#fff' : 'var(--input-bg)' }} />
+        <input value={title} onChange={e => setTitle(e.target.value)} style={{ width: '100%', fontWeight: 700, fontSize: 18, color: 'var(--text-main)', border: '1.5px solid var(--input-border)', borderRadius: 8, padding: '0.5rem 1rem', background: 'var(--input-bg)' }} />
       </div>
       <div style={{ marginBottom: 24 }}>
         <label style={{ fontWeight: 700, marginBottom: 6, display: 'block', color: 'var(--text-main)' }}>내용</label>
-        <textarea value={content} onChange={e => setContent(e.target.value)} style={{ width: '100%', minHeight: 220, borderRadius: 10, border: '1.5px solid var(--input-border)', padding: '1rem', fontSize: 16, color: theme === 'dark' ? '#111' : 'var(--text-main)', fontWeight: 500, background: theme === 'dark' ? '#fff' : 'var(--input-bg)' }} />
+        <textarea value={content} onChange={e => setContent(e.target.value)} style={{ width: '100%', minHeight: 220, borderRadius: 10, border: '1.5px solid var(--input-border)', padding: '1rem', fontSize: 16, color: 'var(--text-main)', fontWeight: 500, background: 'var(--input-bg)' }} />
       </div>
       <button onClick={handleSave} style={{ background: 'var(--button-bg)', color: 'var(--button-text)', border: 'none', borderRadius: 8, padding: '0.7rem 1.6rem', fontWeight: 700, fontSize: 17, cursor: 'pointer' }}>저장</button>
       <button onClick={() => navigate('/dashboard/note')} style={{ background: '#eee', color: '#888', border: 'none', borderRadius: 8, padding: '0.7rem 1.6rem', fontWeight: 700, fontSize: 17, cursor: 'pointer', marginLeft: 10 }}>취소</button>

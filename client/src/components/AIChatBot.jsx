@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { FiX, FiSend, FiCpu, FiUser } from "react-icons/fi";
 
 function AIChatBot({ onClose }) {
   const [messages, setMessages] = useState([]);
@@ -74,15 +75,16 @@ function AIChatBot({ onClose }) {
         {`
         .ai-chatbot-container {
           font-family: 'Pretendard', 'Segoe UI', 'Noto Sans KR', 'Apple SD Gothic Neo', Arial, sans-serif;
-          background: #fff;
+          background: var(--card-bg);
+          color: var(--color-text);
           backdrop-filter: blur(6px) saturate(1.1);
         }
         .ai-chatbot-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          background: linear-gradient(90deg, #fff 0%, #f5f5f5 100%);
-          color: #222;
+          background: var(--neutral-gradient);
+          color: var(--color-text);
           font-weight: 700;
           font-size: 20px;
           padding: 16px 20px 14px 16px;
@@ -96,9 +98,9 @@ function AIChatBot({ onClose }) {
           margin-right: 8px;
         }
         .ai-chatbot-header .ai-close-btn {
-          background: rgba(0,0,0,0.04);
+          background: var(--color-secondary);
           border: none;
-          color: #222;
+          color: var(--color-text);
           font-size: 22px;
           cursor: pointer;
           opacity: 0.7;
@@ -108,11 +110,11 @@ function AIChatBot({ onClose }) {
           transition: background 0.18s, opacity 0.18s;
         }
         .ai-chatbot-header .ai-close-btn:hover {
-          background: rgba(0,0,0,0.10);
+          background: var(--accent-gradient-soft);
           opacity: 1;
         }
         .ai-chatbot-body {
-          background: linear-gradient(135deg, #fff 0%, #f5f5f5 100%);
+          background: var(--neutral-gradient);
           min-height: 380px;
           max-height: 380px;
           overflow-y: auto;
@@ -140,7 +142,7 @@ function AIChatBot({ onClose }) {
           to { opacity: 1; transform: translateY(0) scale(1);}
         }
         .ai-typing-dot {
-          width: 8px; height: 8px; border-radius: 50%; background: #bbb;
+          width: 8px; height: 8px; border-radius: 50%; background: var(--input-border);
           animation: aiBlink 1.2s infinite both;
           margin: 0 2px;
         }
@@ -151,21 +153,21 @@ function AIChatBot({ onClose }) {
           40% { opacity: 1; }
         }
         .ai-chatbot-input {
-          background: #fafafa;
-          color: #222;
-          border: 1.5px solid #e0e0e0;
+          background: var(--input-bg);
+          color: var(--color-text);
+          border: 1.5px solid var(--input-border);
           font-size: 16px;
           border-radius: 12px;
           box-shadow: 0 1px 4px #0001;
           transition: border 0.2s, background 0.2s;
         }
         .ai-chatbot-input:focus {
-          border: 2px solid #222 !important;
-          background: #fff !important;
+          border: 2px solid var(--color-primary) !important;
+          background: var(--card-bg) !important;
         }
         .ai-send-btn {
-          background: linear-gradient(90deg, #fff 0%, #e0e0e0 100%);
-          color: #222;
+          background: var(--accent-gradient);
+          color: var(--button-text);
           border: none;
           border-radius: 12px;
           box-shadow: 0 2px 8px #0001;
@@ -177,28 +179,28 @@ function AIChatBot({ onClose }) {
           cursor: not-allowed;
         }
         .ai-send-btn:hover:not(:disabled) {
-          background: linear-gradient(90deg, #fff 60%, #f5f5f5 100%) !important;
-          color: #000 !important;
+          filter: brightness(1.02);
+          color: var(--button-text) !important;
         }
         .ai-bubble-user {
-          background: linear-gradient(135deg, #fff 0%, #f5f5f5 100%);
-          color: #222;
+          background: var(--neutral-gradient);
+          color: var(--color-text);
           border-top-right-radius: 0 !important;
           border-top-left-radius: 18px !important;
           box-shadow: 0 2px 12px #0001;
         }
         .ai-bubble-bot {
-          background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
-          color: #222;
+          background: var(--neutral-gradient);
+          color: var(--color-text);
           border-top-left-radius: 0 !important;
           border-top-right-radius: 18px !important;
           box-shadow: 0 2px 12px #0001;
         }
         .ai-bubble-user .ai-bubble-tail {
-          border-left: 10px solid #f5f5f5 !important;
+          border-left: 10px solid var(--card-border) !important;
         }
         .ai-bubble-bot .ai-bubble-tail {
-          border-right: 10px solid #e0e0e0 !important;
+          border-right: 10px solid var(--card-border) !important;
         }
         .ai-avatar {
           width: 38px;
@@ -228,12 +230,12 @@ function AIChatBot({ onClose }) {
         `}
       </style>
       <div className="ai-chatbot-header">
-        <span>
-          <span className="ai-bot-icon" role="img" aria-label="bot">🤖</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="ai-bot-icon" aria-label="bot"><FiCpu /></span>
           AI 챗봇
         </span>
         {onClose && (
-          <button className="ai-close-btn" onClick={onClose} title="닫기">✕</button>
+          <button className="ai-close-btn" onClick={onClose} title="닫기" aria-label="닫기"><FiX /></button>
         )}
       </div>
       <div
@@ -253,7 +255,7 @@ function AIChatBot({ onClose }) {
             className="ai-bubble-appear"
           >
             <div className="ai-avatar" aria-label={msg.sender === "user" ? "user" : "bot"}>
-              {msg.sender === "user" ? "🧑" : "🤖"}
+              {msg.sender === "user" ? <FiUser /> : <FiCpu />}
             </div>
             <div
               className={msg.sender === "user" ? "ai-bubble-user" : "ai-bubble-bot"}
@@ -286,7 +288,7 @@ function AIChatBot({ onClose }) {
         ))}
         {isTyping && (
           <div style={typingStyle}>
-            <div className="ai-avatar" aria-label="bot">🤖</div>
+            <div className="ai-avatar" aria-label="bot"><FiCpu /></div>
             <div style={{ display: "flex", gap: 2, marginLeft: 6 }}>
               <div className="ai-typing-dot"></div>
               <div className="ai-typing-dot"></div>
@@ -316,12 +318,7 @@ function AIChatBot({ onClose }) {
           disabled={isTyping || !input.trim()}
           id="send-btn"
         >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M3 20L21 12L3 4V10L17 12L3 14V20Z"
-              fill="currentColor"
-            />
-          </svg>
+          <FiSend />
         </button>
       </div>
     </div>
@@ -331,15 +328,15 @@ function AIChatBot({ onClose }) {
 const containerStyle = {
   maxWidth: 420,
   minWidth: 320,
-  background: "#fff",
+  background: "var(--card-bg)",
   borderRadius: 18,
   padding: 0,
-  boxShadow: "0 8px 32px rgba(0,0,0,0.08)",
+  boxShadow: "0 8px 32px var(--card-shadow)",
   display: "flex",
   flexDirection: "column",
   gap: 0,
   position: "relative",
-  border: "2px solid #eee",
+  border: "2px solid var(--card-border)",
 };
 
 const bubbleStyle = {
@@ -361,22 +358,22 @@ const inputWrapperStyle = {
   alignItems: "center",
   marginTop: 2,
   padding: "12px 16px 16px 16px",
-  background: "#fafafa",
+  background: "var(--card-bg)",
   borderBottomLeftRadius: 18,
   borderBottomRightRadius: 18,
-  boxShadow: "0 -2px 8px #0001",
+  boxShadow: "0 -2px 8px var(--card-shadow)",
 };
 
 const inputStyle = {
   flex: 1,
   padding: "12px 14px",
   borderRadius: 12,
-  border: "1.5px solid #e0e0e0",
+  border: "1.5px solid var(--input-border)",
   fontSize: 16,
   outline: "none",
-  background: "#fafafa",
-  color: "#222",
-  boxShadow: "0 1px 4px #0001",
+  background: "var(--input-bg)",
+  color: "var(--color-text)",
+  boxShadow: "0 1px 4px var(--card-shadow)",
   transition: "border 0.2s, background 0.2s",
 };
 
@@ -387,10 +384,10 @@ const sendBtnStyle = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  background: "linear-gradient(90deg, #fff 0%, #e0e0e0 100%)",
-  color: "#222",
+  background: "var(--accent-gradient)",
+  color: "var(--button-text)",
   cursor: "pointer",
-  boxShadow: "0 2px 8px #0001",
+  boxShadow: "0 2px 8px var(--card-shadow)",
   transition: "background 0.2s, color 0.2s",
 };
 

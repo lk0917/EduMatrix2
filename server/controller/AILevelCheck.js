@@ -16,6 +16,53 @@ const assistantId = process.env.LEVEL_CHECK_ASSISTANT_ID;
 // 중복 요청 방지를 위한 요청 추적
 const activeRequests = new Set();
 
+// (주간 퀴즈 라우트는 AIWeeklyQuiz로 분리됨)
+
+// 캘린더 항목 정규화 유틸: AI 응답의 키가 제각각일 수 있어 안전하게 매핑
+function normalizeCalendarItem(raw) {
+  if (!raw || typeof raw !== "object") raw = {};
+  const coalesce = (...vals) =>
+    vals.find((v) => v != null && String(v).trim().length > 0);
+
+  const topic = coalesce(
+    raw.topic,
+    raw.title,
+    raw.name,
+    raw.subject,
+    raw.theme,
+    raw.focus,
+    raw.task
+  );
+  const goal = coalesce(
+    raw.goal,
+    raw.objective,
+    raw.target,
+    raw.purpose,
+    raw.outcome
+  );
+  let description = coalesce(
+    raw.description,
+    raw.detail,
+    raw.details,
+    raw.action,
+    raw.activity,
+    Array.isArray(raw.tasks) ? raw.tasks.join(", ") : undefined
+  );
+
+  // 마지막 안전장치: 최소한 스키마 요구사항 충족시키도록 기본값 설정
+  const safeTopic = String(topic || goal || description || "학습 주제").slice(
+    0,
+    120
+  );
+  const safeGoal = String(goal || topic || "학습 목표 달성").slice(0, 200);
+  const safeDesc = String(description || `${safeTopic} 관련 학습 수행`).slice(
+    0,
+    500
+  );
+
+  return { topic: safeTopic, goal: safeGoal, description: safeDesc };
+}
+
 // 퀴즈 생성 (기존 AIQuiz 기능)
 router.post("/make-quiz", async (req, res) => {
   const requestKey = `${req.body.user_id}_${req.body.subject}_${req.body.detail}`;
@@ -58,22 +105,15 @@ router.post("/make-quiz", async (req, res) => {
     );
     conn.release();
 
-    // OpenAI Assistant API에 전달할 메시지 생성
+    // OpenAI Assistant API에 전달할 메시지 생성 (퀴즈 생성 전용 프롬프트)
     const userMessage = `
-      관심분야: ${subject}.${detail}
-      학습 목표: ${goal}
-      학습 기간: ${start_date} ~ ${end_date}
-      현재 수준: ${level}
-      세부 분야: ${field}
-
-      위 정보를 바탕으로 4지선다 객관식 10문제를 JSON 배열로 출력해 주세요.
-      형식 예시:
-      [
-        {"q":"문제 내용","a":["선지1","선지2","선지3","선지4"],"answer":2},
-        ...
-      ]
-      부가 설명 없이 JSON만 반환
-    `;
+- 관심분야: ${subject}.${detail}
+- 학습 목표: ${goal}
+- 학습 기간: ${start_date} ~ ${end_date}
+- 현재 수준: ${level}
+- 세부 분야: ${field}
+-
+`;
 
     // 항상 새로운 스레드 생성 (충돌 방지)
     const thread = await openai.beta.threads.create();
@@ -208,26 +248,17 @@ router.post("/save-quiz-result", async (req, res) => {
 
     console.log("퀴즈 결과 DB 저장 완료");
 
-    // AI를 통해 캘린더 계획 생성
+    // AI를 통해 캘린더 계획 생성 (계획 생성 전용 프롬프트)
     const userMessage = `
-      관심분야: ${subject}.${detail}
-      학습 목표: ${goal}
-      학습 기간: ${start_date} ~ ${end_date}
-      현재 수준: ${level}
-      세부 분야: ${field}
-      퀴즈 점수: ${score}/10
-      틀린 문제 주제: ${wrong_topics.join(", ")}
-      현재 날짜: ${new Date().toISOString().slice(0, 10)}
-
-      위 정보를 바탕으로 일일 학습 계획표를 JSON 배열로 출력해 주세요.
-      형식 예시:
-      [
-        {"topic":"조건문 if/else","goal":"조건 분기 이해","description":"if/else 기본 문법 학습"},
-        {"topic":"반복문 for/while","goal":"반복 구조 이해","description":"for/while 문법과 활용법 학습"},
-        ...
-      ]
-      부가 설명 없이 JSON만 반환
-    `;
+- 관심분야: ${subject}.${detail}
+- 학습 목표: ${goal}
+- 학습 기간: ${start_date} ~ ${end_date}
+- 현재 수준: ${level}
+- 세부 분야: ${field}
+- 정답 수(10문항 기준): ${score}
+- 틀린 문제 주제: ${wrong_topics.join(", ")}
+- 현재 날짜: ${new Date().toISOString().slice(0, 10)}
+`;
 
     console.log("AI 캘린더 계획 생성 시작");
 
@@ -282,39 +313,59 @@ router.post("/save-quiz-result", async (req, res) => {
       try {
         const calendarPlan = JSON.parse(jsonText);
 
-        console.log("캘린더 계획 파싱 성공:", calendarPlan.length, "개 항목");
+        console.log(
+          "캘린더 계획 파싱 성공:",
+          Array.isArray(calendarPlan) ? calendarPlan.length : 0,
+          "개 항목"
+        );
 
-        // MongoDB에 캘린더 계획 저장
+        // MongoDB에 캘린더 계획 저장 (필드 정규화)
         const today = new Date();
-        const docs = calendarPlan.map((item, idx) => ({
-          user_id,
-          date: new Date(today.getTime() + idx * 86400000)
-            .toISOString()
-            .slice(0, 10),
-          topic: item.topic,
-          goal: item.goal,
-          description: item.description,
-          field: `${subject}.${detail}`,
-        }));
+        const docs = (Array.isArray(calendarPlan) ? calendarPlan : []).map(
+          (item, idx) => {
+            const norm = normalizeCalendarItem(item);
+            return {
+              user_id,
+              date: new Date(today.getTime() + idx * 86400000)
+                .toISOString()
+                .slice(0, 10),
+              topic: norm.topic,
+              goal: norm.goal,
+              description: norm.description,
+              field: `${subject}.${detail}`,
+            };
+          }
+        );
 
-        await CalendarPlan.insertMany(docs);
+        try {
+          if (docs.length > 0) {
+            await CalendarPlan.insertMany(docs);
+          }
+        } catch (dbErr) {
+          console.error("캘린더 저장 실패:", dbErr);
+          return res.status(500).json({
+            error: "캘린더 계획 저장에 실패했습니다.",
+            details: dbErr.message,
+          });
+        }
 
         console.log("MongoDB 캘린더 계획 저장 완료:", docs.length, "개 항목");
 
+        // 클라이언트에서 즉시 표시 가능하도록 저장된 문서(docs)를 반환
         res.json({
           success: true,
           message: "퀴즈 결과가 저장되고 학습 계획이 생성되었습니다.",
-          calendarPlan,
+          calendarPlan: docs,
           thread_id: currentThreadId,
           generatedCount: docs.length,
           user_id: user_id,
         });
-      } catch (parseError) {
-        console.error("JSON 파싱 실패:", parseError);
+      } catch (jsonErr) {
+        console.error("캘린더 JSON 파싱 실패:", jsonErr);
         console.error("원본 응답:", assistantResponseText);
         res.status(500).json({
           error: "캘린더 계획 파싱에 실패했습니다.",
-          details: parseError.message,
+          details: jsonErr.message,
         });
       }
     } else {
@@ -345,14 +396,6 @@ router.post("/start", async (req, res) => {
       학습 목표: ${goal}
       학습 기간: ${period}
       현재 수준: ${level}
-
-      4지선다 객관식 10문제를 JSON 배열로 출력해 주세요.
-      형식 예시:
-      [
-        {"q":"문제","a":["1","2","3","4"],"answer":2},
-        ...
-      ]
-      부가 설명 없이 JSON만 반환
     `;
 
     // 새로운 스레드 생성
@@ -443,14 +486,6 @@ router.post("/result", async (req, res) => {
       현재 수준: ${level}
       정답 수: ${score}/10
       틀린 문제 주제: ${wrongTopics.join(", ")}
-
-      일일 학습 계획표를 JSON 배열로 출력해 주세요.
-      형식 예시:
-      [
-        {"topic":"조건문 if/else","goal":"조건 분기 이해","description":"if/else 기본 문법 학습"},
-        ...
-      ]
-      부가 설명 없이 JSON만 반환
     `;
 
     // 새로운 스레드 생성
@@ -499,31 +534,45 @@ router.post("/result", async (req, res) => {
       try {
         const plan = JSON.parse(jsonText);
 
-        // ③ MongoDB 캘린더 자동 저장
+        // ③ MongoDB 캘린더 자동 저장 (필드 정규화)
         const today = new Date();
-        const docs = plan.map((item, idx) => ({
-          user_id,
-          date: new Date(today.getTime() + idx * 86400000)
-            .toISOString()
-            .slice(0, 10),
-          topic: item.topic,
-          goal: item.goal,
-          description: item.description,
-          field: subject,
-        }));
-        await CalendarPlan.insertMany(docs);
+        const docs = (Array.isArray(plan) ? plan : []).map((item, idx) => {
+          const norm = normalizeCalendarItem(item);
+          return {
+            user_id,
+            date: new Date(today.getTime() + idx * 86400000)
+              .toISOString()
+              .slice(0, 10),
+            topic: norm.topic,
+            goal: norm.goal,
+            description: norm.description,
+            field: `${subject}.${detail}`,
+          };
+        });
+
+        try {
+          if (docs.length > 0) {
+            await CalendarPlan.insertMany(docs);
+          }
+        } catch (dbErr) {
+          console.error("캘린더 저장 실패:", dbErr);
+          return res.status(500).json({
+            error: "캘린더 계획 저장에 실패했습니다.",
+            details: dbErr.message,
+          });
+        }
 
         res.json({
           success: true,
           plan,
           thread_id: threadId,
         });
-      } catch (parseError) {
-        console.error("JSON 파싱 실패:", parseError);
+      } catch (jsonErr) {
+        console.error("계획 JSON 파싱 실패:", jsonErr);
         console.error("원본 응답:", assistantResponseText);
         res.status(500).json({
           error: "계획 데이터 파싱에 실패했습니다.",
-          details: parseError.message,
+          details: jsonErr.message,
         });
       }
     } else {

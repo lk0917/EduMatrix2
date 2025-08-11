@@ -50,6 +50,8 @@ function CalendarPage() {
   const [editTopic, setEditTopic] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editField, setEditField] = useState('기타');
+  const [editingPlanId, setEditingPlanId] = useState(null);
+  const [selectedDatePlans, setSelectedDatePlans] = useState([]);
   const navigate = useNavigate();
 
     useEffect(() => {
@@ -58,11 +60,9 @@ function CalendarPage() {
             if (!user?.user_id) return;
             try {
                 const res = await axios.get(`/api/calendar/${user.user_id}`);
-                const data = res.data.reduce((acc, { date, goal, field, topic, description, _id }) => {
-                    acc[date] = { 목표: goal, 분야: field, 주제: topic, 설명: description, id: _id };
-                    return acc;
-                }, {});
-                setPlanData(data);
+                // 새로운 API 응답 구조에 맞게 수정
+                const { groupedPlans } = res.data;
+                setPlanData(groupedPlans || {});
             } catch (err) {
                 console.error("캘린더 불러오기 실패:", err);
             }
@@ -74,15 +74,36 @@ function CalendarPage() {
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
-  // 날짜 클릭 시 모달 오픈 및 기존 데이터 세팅
+  // 날짜 클릭 시 모달 오픈 및 해당 날짜의 일정들 표시
   const handleCalendarClick = (date) => {
     const ymd = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     setSelectedDate(ymd);
-    setEditGoal(planData[ymd]?.목표 || '');
-    setEditTopic(planData[ymd]?.주제 || '');
-    setEditDescription(planData[ymd]?.설명 || '');
-    setEditField(planData[ymd]?.분야 || '기타');
+    setSelectedDatePlans(planData[ymd] || []);
+    // 새 일정 추가를 위해 초기화
+    setEditGoal('');
+    setEditTopic('');
+    setEditDescription('');
+    setEditField('기타');
+    setEditingPlanId(null);
     setEditOpen(true);
+  };
+
+  // 기존 일정 편집
+  const handleEditPlan = (plan) => {
+    setEditGoal(plan.goal);
+    setEditTopic(plan.topic);
+    setEditDescription(plan.description);
+    setEditField(plan.field);
+    setEditingPlanId(plan._id);
+  };
+
+  // 새 일정 추가
+  const handleAddNewPlan = () => {
+    setEditGoal('');
+    setEditTopic('');
+    setEditDescription('');
+    setEditField('기타');
+    setEditingPlanId(null);
   };
   // 계획 저장
     const handlePlanSave = async () => {
@@ -96,43 +117,74 @@ function CalendarPage() {
             field: editField
         };
         try {
-            if (planData[selectedDate]?.id) {
-                await axios.put(`/api/calendar/${planData[selectedDate].id}`, {
+            if (editingPlanId) {
+                // 기존 일정 수정
+                await axios.put(`/api/calendar/${editingPlanId}`, {
                     goal: editGoal,
                     topic: editTopic,
                     description: editDescription,
                     field: editField
                 });
+                
+                // 로컬 상태 업데이트
+                setPlanData(prev => ({
+                    ...prev,
+                    [selectedDate]: prev[selectedDate].map(plan => 
+                        plan._id === editingPlanId 
+                            ? { ...plan, goal: editGoal, topic: editTopic, description: editDescription, field: editField }
+                            : plan
+                    )
+                }));
+                
+                setSelectedDatePlans(prev => 
+                    prev.map(plan => 
+                        plan._id === editingPlanId 
+                            ? { ...plan, goal: editGoal, topic: editTopic, description: editDescription, field: editField }
+                            : plan
+                    )
+                );
             } else {
+                // 새 일정 추가
                 const res = await axios.post("/api/calendar", payload);
-                payload.id = res.data._id;
+                const newPlan = res.data;
+                
+                setPlanData(prev => ({
+                    ...prev,
+                    [selectedDate]: [...(prev[selectedDate] || []), newPlan]
+                }));
+                
+                setSelectedDatePlans(prev => [...prev, newPlan]);
             }
-            setPlanData(prev => ({
-                ...prev,
-                [selectedDate]: { 
-                    목표: editGoal, 
-                    분야: editField, 
-                    주제: editTopic,
-                    설명: editDescription,
-                    id: payload.id 
-                }
-            }));
-            setEditOpen(false);
+            
+            // 폼 초기화
+            setEditGoal('');
+            setEditTopic('');
+            setEditDescription('');
+            setEditField('기타');
+            setEditingPlanId(null);
         } catch (err) {
             console.error("일정 저장 실패:", err);
         }
     };
   // 계획 삭제
-    const handlePlanDelete = async () => {
+    const handlePlanDelete = async (planId) => {
         try {
-            const { id } = planData[selectedDate];
-            await axios.delete(`/api/calendar/${id}`);
-            setPlanData(prev => {
-                const next = { ...prev };
-                delete next[selectedDate];
-                return next;
-            });
-            setEditOpen(false);
+            await axios.delete(`/api/calendar/${planId}`);
+            
+            // 로컬 상태에서 해당 일정 제거
+            setPlanData(prev => ({
+                ...prev,
+                [selectedDate]: prev[selectedDate].filter(plan => plan._id !== planId)
+            }));
+            
+            setSelectedDatePlans(prev => prev.filter(plan => plan._id !== planId));
+            
+            // 폼 초기화
+            setEditGoal('');
+            setEditTopic('');
+            setEditDescription('');
+            setEditField('기타');
+            setEditingPlanId(null);
         } catch (err) {
             console.error("일정 삭제 실패:", err);
         }
@@ -177,7 +229,7 @@ function CalendarPage() {
         {/* 상단 일러스트/아이콘 */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <FaRegCalendarCheck style={{ fontSize: 54, color: 'var(--color-primary)', marginBottom: 8 }} />
-          <div style={{ fontSize: 36, fontWeight: 900, marginBottom: 10, background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-1.5px' }}>
+          <div style={{ fontSize: 36, fontWeight: 900, marginBottom: 10, background: 'var(--accent-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '-1.5px' }}>
             학습 계획 캘린더
           </div>
           <div style={{ color: 'var(--color-text)', fontSize: 19, marginBottom: 8 }}>
@@ -196,34 +248,53 @@ function CalendarPage() {
               onClickDay={handleCalendarClick}
                              tileContent={({ date, view }) => {
                  const ymd = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-                 if (planData[ymd]) {
-                   const color = fieldColors[planData[ymd].분야] || '#667eea';
-                   const displayText = planData[ymd].주제 || planData[ymd].목표;
+                 const dayPlans = planData[ymd];
+                 
+                 if (dayPlans && dayPlans.length > 0) {
                    return (
-                     <span
-                       style={{
-                         display: 'inline-block',
-                         marginTop: 6,
-                         background: color,
-                         color: '#fff',
-                         borderRadius: 8,
-                         padding: '2px 10px',
-                         fontSize: 13,
-                         fontWeight: 700,
-                         minWidth: 0,
-                         maxWidth: 80,
-                         overflow: 'hidden',
-                         textOverflow: 'ellipsis',
-                         whiteSpace: 'nowrap',
-                         boxShadow: '0 1px 4px #0001',
-                         letterSpacing: '-0.5px',
-                         border: 'none',
-                         transition: 'background 0.18s',
-                       }}
-                       title={`주제: ${planData[ymd].주제 || planData[ymd].목표}\n목표: ${planData[ymd].목표}\n설명: ${planData[ymd].설명 || '설명 없음'}\n분야: ${planData[ymd].분야}`}
-                     >
-                       {displayText}
-                     </span>
+                     <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                       {dayPlans.slice(0, 3).map((plan, index) => {
+                         const color = fieldColors[plan.field] || '#667eea';
+                         const displayText = plan.topic || plan.goal;
+                         return (
+                           <span
+                             key={plan._id}
+                             style={{
+                               display: 'inline-block',
+                               background: color,
+                               color: '#fff',
+                               borderRadius: 6,
+                               padding: '1px 6px',
+                               fontSize: 10,
+                               fontWeight: 600,
+                               maxWidth: 70,
+                               overflow: 'hidden',
+                               textOverflow: 'ellipsis',
+                               whiteSpace: 'nowrap',
+                               boxShadow: '0 1px 3px #0001',
+                               letterSpacing: '-0.3px',
+                               transition: 'background 0.18s',
+                             }}
+                             title={`주제: ${plan.topic || plan.goal}\n목표: ${plan.goal}\n설명: ${plan.description || '설명 없음'}\n분야: ${plan.field}`}
+                           >
+                             {displayText}
+                           </span>
+                         );
+                       })}
+                       {dayPlans.length > 3 && (
+                         <span
+                           style={{
+                             fontSize: 9,
+                             color: '#666',
+                             fontWeight: 600,
+                             textAlign: 'center',
+                             marginTop: 1
+                           }}
+                         >
+                           +{dayPlans.length - 3}개 더
+                         </span>
+                       )}
+                     </div>
                    );
                  }
                  return null;
@@ -246,45 +317,165 @@ function CalendarPage() {
           날짜를 클릭해 계획을 추가하거나 수정하세요.
         </div>
                  <ModalCard open={editOpen} onClose={() => setEditOpen(false)} title={selectedDate + ' 학습 계획'}>
-                       <div style={{ marginBottom: 22 }}>
-              <label style={{ fontWeight: 700, marginBottom: 8, display: 'block', fontSize: 17, color: 'var(--color-primary)' }}>주제</label>
-              <input type="text" value={editTopic} onChange={e => setEditTopic(e.target.value)} style={{ width: '100%', padding: 14, borderRadius: 10, border: '1.5px solid var(--card-border)', fontSize: 17, background: 'var(--input-bg)' }} />
+          {/* 기존 일정 목록 */}
+          {selectedDatePlans.length > 0 && (
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontWeight: 700, marginBottom: 12, fontSize: 18, color: 'var(--color-primary)' }}>
+                기존 일정 ({selectedDatePlans.length}개)
+              </div>
+              <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid var(--card-border)', borderRadius: 8, padding: 8 }}>
+                {selectedDatePlans.map((plan) => (
+                  <div key={plan._id} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '8px 12px',
+                    marginBottom: 8,
+                    background: 'var(--input-bg)',
+                    borderRadius: 8,
+                    border: editingPlanId === plan._id ? '2px solid var(--color-primary)' : '1px solid var(--card-border)'
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--color-primary)' }}>
+                        {plan.topic || plan.goal}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--color-text)', marginTop: 2 }}>
+                        {plan.field} • {plan.goal}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button
+                        onClick={() => handleEditPlan(plan)}
+                        style={{
+                          padding: '4px 8px',
+                          borderRadius: 4,
+                          border: 'none',
+                          background: 'var(--color-primary)',
+                          color: 'white',
+                          fontSize: 12,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        편집
+                      </button>
+                      <button
+                        onClick={() => handlePlanDelete(plan._id)}
+                        style={{
+                          padding: '4px 8px',
+                          borderRadius: 4,
+                          border: 'none',
+                          background: '#e74c3c',
+                          color: 'white',
+                          fontSize: 12,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        삭제
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 일정 편집/추가 폼 */}
+          <div style={{ border: '2px solid var(--color-primary)', borderRadius: 12, padding: 16, background: 'var(--accent-gradient-soft)' }}>
+            <div style={{ fontWeight: 700, marginBottom: 16, fontSize: 16, color: 'var(--color-primary)' }}>
+              {editingPlanId ? '일정 편집' : '새 일정 추가'}
             </div>
             
-            <div style={{ marginBottom: 22 }}>
-              <label style={{ fontWeight: 700, marginBottom: 8, display: 'block', fontSize: 17, color: 'var(--color-primary)' }}>목표</label>
-              <input type="text" value={editGoal} onChange={e => setEditGoal(e.target.value)} style={{ width: '100%', padding: 14, borderRadius: 10, border: '1.5px solid var(--card-border)', fontSize: 17, background: 'var(--input-bg)' }} />
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontWeight: 700, marginBottom: 8, display: 'block', fontSize: 15, color: 'var(--color-primary)' }}>주제</label>
+              <input type="text" value={editTopic} onChange={e => setEditTopic(e.target.value)} style={{ width: '100%', padding: 12, borderRadius: 8, border: '1.5px solid var(--card-border)', fontSize: 15, background: 'var(--input-bg)' }} />
             </div>
             
-            <div style={{ marginBottom: 22 }}>
-              <label style={{ fontWeight: 700, marginBottom: 8, display: 'block', fontSize: 17, color: 'var(--color-primary)' }}>설명</label>
-              <textarea value={editDescription} onChange={e => setEditDescription(e.target.value)} style={{ width: '100%', padding: 14, borderRadius: 10, border: '1.5px solid var(--card-border)', fontSize: 17, background: 'var(--input-bg)', minHeight: 80, resize: 'vertical' }} />
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontWeight: 700, marginBottom: 8, display: 'block', fontSize: 15, color: 'var(--color-primary)' }}>목표</label>
+              <input type="text" value={editGoal} onChange={e => setEditGoal(e.target.value)} style={{ width: '100%', padding: 12, borderRadius: 8, border: '1.5px solid var(--card-border)', fontSize: 15, background: 'var(--input-bg)' }} />
             </div>
             
-            <div style={{ marginBottom: 22 }}>
-              <label style={{ fontWeight: 700, marginBottom: 8, display: 'block', fontSize: 17, color: 'var(--color-primary)' }}>분야</label>
-              <select value={editField} onChange={e => setEditField(e.target.value)} style={{ width: '100%', padding: 14, borderRadius: 10, border: '1.5px solid var(--card-border)', fontSize: 17, background: 'var(--input-bg)' }}>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontWeight: 700, marginBottom: 8, display: 'block', fontSize: 15, color: 'var(--color-primary)' }}>설명</label>
+              <textarea value={editDescription} onChange={e => setEditDescription(e.target.value)} style={{ width: '100%', padding: 12, borderRadius: 8, border: '1.5px solid var(--card-border)', fontSize: 15, background: 'var(--input-bg)', minHeight: 60, resize: 'vertical' }} />
+            </div>
+            
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontWeight: 700, marginBottom: 8, display: 'block', fontSize: 15, color: 'var(--color-primary)' }}>분야</label>
+              <select value={editField} onChange={e => setEditField(e.target.value)} style={{ width: '100%', padding: 12, borderRadius: 8, border: '1.5px solid var(--card-border)', fontSize: 15, background: 'var(--input-bg)' }}>
                 {분야목록.map(f => (
                   <option key={f} value={f}>{f}</option>
                 ))}
               </select>
             </div>
-          <div style={{ display: 'flex', gap: 12 }}>
-            <button onClick={handlePlanSave} style={{ flex: 1, padding: 14, borderRadius: 12, background: 'linear-gradient(90deg, var(--color-primary), var(--color-secondary))', color: 'var(--color-bg)', border: 'none', fontWeight: 'bold', fontSize: 18, marginTop: 8, boxShadow: '0 1px 4px var(--card-shadow)', letterSpacing: '-0.5px' }}>저장</button>
-            {planData[selectedDate] && (
-              <button onClick={handlePlanDelete} style={{ flex: 1, padding: 14, borderRadius: 12, background: 'var(--color-secondary)', color: 'var(--color-danger, #e74c3c)', border: 'none', fontWeight: 'bold', fontSize: 18, marginTop: 8, letterSpacing: '-0.5px' }}>삭제</button>
-            )}
+            
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button 
+                onClick={handlePlanSave} 
+                style={{ 
+                  flex: 1, 
+                  padding: 12, 
+                  borderRadius: 8, 
+                  background: 'var(--accent-gradient)', 
+                  color: 'white', 
+                  border: 'none', 
+                  fontWeight: 'bold', 
+                  fontSize: 14, 
+                  cursor: 'pointer'
+                }}
+              >
+                {editingPlanId ? '수정' : '추가'}
+              </button>
+              {editingPlanId && (
+                <button 
+                  onClick={handleAddNewPlan} 
+                  style={{ 
+                    flex: 1, 
+                    padding: 12, 
+                    borderRadius: 8, 
+                    background: 'var(--color-secondary)', 
+                    color: 'var(--color-primary)', 
+                    border: 'none', 
+                    fontWeight: 'bold', 
+                    fontSize: 14, 
+                    cursor: 'pointer'
+                  }}
+                >
+                  새 일정
+                </button>
+              )}
+            </div>
           </div>
         </ModalCard>
         {/* 오늘 계획 강조 (있으면) */}
-        {planData[todayStr] && (
-          <div style={{ marginTop: 32, background: 'linear-gradient(90deg, var(--color-secondary), var(--color-primary), var(--color-secondary))', borderRadius: 16, boxShadow: '0 1px 8px var(--card-shadow)', padding: '1.2rem 1.5rem', textAlign: 'center', fontWeight: 700, color: 'var(--color-primary)', fontSize: 18 }}>
-            오늘의 계획: <span style={{ color: 'var(--color-primary)' }}>{planData[todayStr].주제 || planData[todayStr].목표}</span> <span style={{ color: 'var(--color-text)', fontWeight: 500, fontSize: 15 }}>({planData[todayStr].분야})</span>
-            {planData[todayStr].설명 && (
-              <div style={{ marginTop: 8, fontSize: 14, color: 'var(--color-text)', fontWeight: 500 }}>
-                {planData[todayStr].설명}
-              </div>
-            )}
+        {planData[todayStr] && planData[todayStr].length > 0 && (
+          <div style={{ marginTop: 32, background: 'var(--accent-gradient-soft)', borderRadius: 16, boxShadow: '0 1px 8px var(--card-shadow)', padding: '1.2rem 1.5rem', fontWeight: 700, color: 'var(--color-primary)', fontSize: 18 }}>
+            <div style={{ textAlign: 'center', marginBottom: 12 }}>
+              오늘의 계획 ({planData[todayStr].length}개)
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {planData[todayStr].map((plan, index) => (
+                <div key={plan._id} style={{ 
+                  background: 'var(--card-bg)', 
+                  borderRadius: 8, 
+                  padding: '8px 12px',
+                  border: '1px solid var(--card-border)',
+                  fontSize: 14
+                }}>
+                  <div style={{ fontWeight: 600, color: 'var(--color-primary)' }}>
+                    {plan.topic || plan.goal}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--color-text)', marginTop: 2 }}>
+                    {plan.field} • {plan.goal}
+                  </div>
+                  {plan.description && (
+                    <div style={{ fontSize: 12, color: 'var(--color-text)', marginTop: 4, fontWeight: 400 }}>
+                      {plan.description}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -334,8 +525,8 @@ function CalendarPage() {
           letter-spacing: 0.5px;
         }
         .custom-big-calendar .react-calendar__tile {
-          min-width: 80px;
-          min-height: 80px;
+          min-width: 90px;
+          min-height: 100px;
           font-size: 1.08em;
           border-radius: 14px;
           transition: background 0.18s, color 0.18s, box-shadow 0.18s, border 0.18s;
@@ -343,7 +534,10 @@ function CalendarPage() {
           color: #222;
           border: 1.5px solid #e0e7ff;
           box-shadow: 0 1px 4px #e0e7ff22;
-          padding: 0.7em 0.2em 0.5em 0.2em;
+          padding: 0.5em 0.2em 0.3em 0.2em;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
         }
         .custom-big-calendar .react-calendar__tile:enabled:hover {
           background: #f3f6fd !important;

@@ -179,7 +179,7 @@ function SelectSubject() {
                 border: selectedSubject === subject.id ? '3px solid #667eea' : '1.5px solid #e0e7ff',
                 borderRadius: '16px',
                 cursor: 'pointer',
-                background: selectedSubject === subject.id ? 'linear-gradient(90deg,#eef2ff,#e0e7ff)' : '#f8f9fa',
+                background: selectedSubject === subject.id ? 'var(--accent-gradient-soft)' : '#f8f9fa',
                 transition: 'all 0.2s',
                 minWidth: 120,
                 textAlign: 'center',
@@ -220,7 +220,7 @@ function SelectSubject() {
                     border: selectedDetail === detail.id ? '3px solid #764ba2' : '1.5px solid #e0e7ff',
                     borderRadius: '12px',
                     cursor: 'pointer',
-                    background: selectedDetail === detail.id ? 'linear-gradient(90deg,#f3e8ff,#ede9fe)' : '#f8f9fa',
+                    background: selectedDetail === detail.id ? 'var(--accent-gradient-soft)' : '#f8f9fa',
                     transition: 'all 0.2s',
                     textAlign: 'center',
                     fontWeight: 600,
@@ -285,7 +285,7 @@ function SelectSubject() {
             disabled={!(selectedSubject && selectedDetail && selectedLevel)}
             style={{
               padding: '1rem 2.5rem',
-              background: selectedSubject && selectedDetail && selectedLevel ? 'linear-gradient(90deg,#667eea,#764ba2)' : '#ccc',
+              background: selectedSubject && selectedDetail && selectedLevel ? 'var(--accent-gradient)' : '#ccc',
               color: 'white',
               border: 'none',
               borderRadius: 12,

@@ -213,12 +213,12 @@ function QuizPage() {
     <div style={{ minHeight: '100vh', background: 'var(--bg-main)', padding: '2rem 0', color: 'var(--text-main)' }}>
       <div style={{ maxWidth: 520, margin: '2rem auto', background: 'var(--card-bg)', borderRadius: 20, boxShadow: '0 8px 32px var(--card-shadow)', padding: '2.5rem 2rem', position: 'relative', color: 'var(--text-main)' }}>
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontWeight: 700, fontSize: 20, textAlign: 'center', marginBottom: 8, background: 'linear-gradient(90deg,#667eea,#764ba2)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          <div style={{ fontWeight: 700, fontSize: 20, textAlign: 'center', marginBottom: 8, background: 'var(--accent-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             수준 체크
             {detail && <span style={{ fontWeight: 500, fontSize: 16, color: '#111', marginLeft: 10 }}>/ {detail}</span>}
           </div>
           <div style={{ height: 10, background: '#eee', borderRadius: 6, overflow: 'hidden', marginBottom: 8 }}>
-            <div style={{ width: `${submitted ? 100 : progress}%`, height: '100%', background: 'linear-gradient(90deg,#222,#111)', transition: 'width 0.4s' }} />
+            <div style={{ width: `${submitted ? 100 : progress}%`, height: '100%', background: 'var(--contrast-gradient)', transition: 'width 0.4s' }} />
           </div>
           <div style={{ textAlign: 'right', color: '#888', fontSize: 13 }}>{submitted ? '완료' : `문제 ${current + 1} / 10`}</div>
         </div>
@@ -226,7 +226,7 @@ function QuizPage() {
         {!submitted ? (
           <form onSubmit={handleSubmit}>
             <div style={{
-              background: `linear-gradient(90deg, ${quizColors[current % quizColors.length]}11 0%, #fff 100%)`,
+              background: `linear-gradient(90deg, ${quizColors[current % quizColors.length]}11 0%, var(--card-bg) 100%)`,
               borderRadius: 16,
               boxShadow: '0 2px 8px #eee',
               padding: '2rem 1.2rem',
@@ -249,7 +249,7 @@ function QuizPage() {
                       padding: '0.9rem 1.2rem',
                       borderRadius: 10,
                       border: answers[current] === aIdx ? '2.5px solid #111' : '1.5px solid #ccc',
-                      background: answers[current] === aIdx ? 'linear-gradient(90deg,#222,#111)' : '#fff',
+                      background: answers[current] === aIdx ? 'var(--contrast-gradient)' : 'var(--card-bg)',
                       color: answers[current] === aIdx ? '#fff' : '#111',
                       fontWeight: answers[current] === aIdx ? 700 : 500,
                       fontSize: 16,
@@ -278,7 +278,7 @@ function QuizPage() {
                     padding: '0.7rem 2.2rem',
                     fontSize: '1.1rem',
                     borderRadius: 8,
-                    background: answers[current] !== null ? 'linear-gradient(90deg,#667eea,#764ba2)' : '#ccc',
+                    background: answers[current] !== null ? 'var(--accent-gradient)' : '#ccc',
                     color: 'white',
                     border: 'none',
                     fontWeight: 600,
@@ -298,7 +298,7 @@ function QuizPage() {
                     padding: '0.7rem 2.2rem',
                     fontSize: '1.1rem',
                     borderRadius: 8,
-                    background: answers[current] !== null ? 'linear-gradient(90deg,#667eea,#764ba2)' : '#ccc',
+                    background: answers[current] !== null ? 'var(--accent-gradient)' : '#ccc',
                     color: 'white',
                     border: 'none',
                     fontWeight: 600,
@@ -316,7 +316,7 @@ function QuizPage() {
         ) : (
           <div style={{ textAlign: 'center', marginTop: 24 }}>
             <div style={{
-              background: 'linear-gradient(90deg,#667eea,#764ba2)',
+              background: 'var(--accent-gradient)',
               color: '#111',
               borderRadius: 16,
               padding: '2rem 1.5rem',

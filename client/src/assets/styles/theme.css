@@ -1,45 +1,97 @@
 :root {
-  /* Light Theme (기본) */
-  --color-bg: #fff;
-  --color-text: #111;
-  --color-primary: #222;
-  --color-secondary: #eee;
-  --button-bg: #fff;
-  --button-text: #111;
-  --input-bg: #fff;
-  --input-text: #111;
-  --input-border: #bbb;
-  --card-bg: #fff;
-  --card-shadow: #b39ddb22;
-  --card-border: #eee;
+  /* Light Theme (모던) */
+  --color-bg: #f7f8fa; /* subtle light surface */
+  --color-text: #0f172a; /* slate-900 */
+  --color-primary: #6366f1; /* indigo-500 */
+  --color-secondary: #a5b4fc; /* indigo-300 */
+
+  --button-bg: #0f172a;
+  --button-text: #ffffff;
+
+  --input-bg: #ffffff;
+  --input-text: #0f172a;
+  --input-border: #e5e7eb; /* gray-200 */
+
+  --card-bg: #ffffff;
+  --card-shadow: 0 8px 32px #00000014;
+  --card-border: #e5e7eb;
+
+  /* Gradient Tokens */
+  --accent-gradient: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
+  --accent-gradient-soft: linear-gradient(90deg, #a5b4fc, #c7d2fe 80%);
+  --neutral-gradient: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);
+  --contrast-gradient: linear-gradient(90deg, #222, #111);
+
+  /* Table Tokens (Light) */
+  --table-bg: #ffffff;
+  --table-header-bg: #f8fafc;
+  --table-border: #e5e7eb;
+  --table-text: #0f172a;
+  --table-stripe-bg: #f9fafb;
+  --table-hover-bg: #eef2ff;
 }
 
 [data-theme="dark"] {
-  --color-bg: #181a20;
-  --color-text: #f5f5f5;
-  --color-primary: #fff;
-  --color-secondary: #23272f;
-  --button-bg: #23272f;
-  --button-text: #fff;
-  --input-bg: #23272f;
-  --input-text: #fff;
-  --input-border: #444;
-  --card-bg: #23272f;
-  --card-shadow: #00000044;
-  --card-border: #333;
+  --color-bg: #0f172a; /* slate-900 */
+  --color-text: #e5e7eb; /* gray-200 */
+  --color-primary: #8b5cf6; /* violet-500 */
+  --color-secondary: #334155; /* slate-700 */
+
+  --button-bg: #1f2937; /* gray-800 */
+  --button-text: #e5e7eb;
+
+  --input-bg: #111827; /* gray-900 */
+  --input-text: #e5e7eb;
+  --input-border: #334155;
+
+  --card-bg: #111827;
+  --card-shadow: 0 8px 32px #00000066;
+  --card-border: #1f2937;
+
+  /* Gradient Tokens */
+  --accent-gradient: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
+  --accent-gradient-soft: linear-gradient(90deg, #334155, #1f2937 80%);
+  --neutral-gradient: linear-gradient(135deg, #0b1220 0%, #0f172a 100%);
+  --contrast-gradient: linear-gradient(90deg, #1f2937, #111827);
+
+  /* Table Tokens (Dark) */
+  --table-bg: #0f172a;
+  --table-header-bg: #111827;
+  --table-border: #334155;
+  --table-text: #e5e7eb;
+  --table-stripe-bg: rgba(255, 255, 255, 0.03);
+  --table-hover-bg: rgba(99, 102, 241, 0.12);
 }
 
 [data-theme="gradient"] {
-  --color-bg: linear-gradient(135deg, #dfe9f3 0%, #f5f7fa 40%, #c2e9fb 80%, #a1c4fd 100%);
-  --color-text: #111;
-  --color-primary: #111;
-  --color-secondary: rgba(255,255,255,0.15);
-  --button-bg: rgba(255,255,255,0.18);
-  --button-text: #111;
-  --input-bg: rgba(255,255,255,0.22);
-  --input-text: #111;
-  --input-border: #111;
-  --card-bg: rgba(255,255,255,0.18);
-  --card-shadow: #764ba244;
-  --card-border: #111;
+  /* 파스텔 계열의 은은한 그라데이션 (라이트 기반) */
+  --color-bg: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 35%, #ede9fe 70%, #fae8ff 100%);
+  --color-text: #0f172a;
+  --color-primary: #6366f1;
+  --color-secondary: rgba(255, 255, 255, 0.55);
+
+  --button-bg: rgba(15, 23, 42, 0.9);
+  --button-text: #ffffff;
+
+  --input-bg: rgba(255, 255, 255, 0.75);
+  --input-text: #0f172a;
+  --input-border: rgba(15, 23, 42, 0.18);
+
+  --card-bg: rgba(255, 255, 255, 0.72);
+  --card-shadow: 0 10px 30px rgba(99, 102, 241, 0.18);
+  --card-border: rgba(15, 23, 42, 0.15);
+
+  /* Gradient Tokens */
+  --accent-gradient: linear-gradient(90deg, #667eea 0%, #c7d2fe 100%);
+  --accent-gradient-soft: linear-gradient(90deg, #e0e7ff, #c7d2fe 80%);
+  --neutral-gradient: linear-gradient(135deg, #ffffff 0%, #f5f7ff 100%);
+  --contrast-gradient: linear-gradient(90deg, #0f172a, #1f2937);
+
+  /* Table Tokens (Gradient) */
+  --table-bg: rgba(255, 255, 255, 0.85);
+  --table-header-bg: rgba(255, 255, 255, 0.92);
+  --table-border: rgba(15, 23, 42, 0.18);
+  --table-text: #0f172a;
+  --table-stripe-bg: rgba(255, 255, 255, 0.82);
+  --table-hover-bg: rgba(99, 102, 241, 0.12);
 }

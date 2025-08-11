@@ -113,7 +113,7 @@ function PlanRecommend() {
       <div style={{ background: '#fff', borderRadius: 28, boxShadow: '0 8px 32px #0002', padding: '2.7rem 2.2rem', maxWidth: 540, width: '100%' }}>
         {/* 상단 정보 */}
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
-          <div style={{ fontSize: 28, fontWeight: 900, marginBottom: 10, background: 'linear-gradient(90deg,#667eea,#764ba2)', WebkitBackgroundClip: 'text', /* WebkitTextFillColor: 'transparent', */ letterSpacing: 1 }}>
+          <div style={{ fontSize: 28, fontWeight: 900, marginBottom: 10, background: 'var(--accent-gradient)', WebkitBackgroundClip: 'text', /* WebkitTextFillColor: 'transparent', */ letterSpacing: 1 }}>
             AI 맞춤 학습 계획표
           </div>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 10 }}>
@@ -192,7 +192,7 @@ function PlanRecommend() {
             onClick={() => navigate('/dashboard')}
             style={{
               padding: '1rem 2.5rem',
-              background: '#111',
+              background: 'var(--contrast-gradient)',
               color: 'white',
               border: 'none',
               borderRadius: 14,

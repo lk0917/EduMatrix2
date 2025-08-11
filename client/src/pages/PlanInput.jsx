@@ -65,7 +65,7 @@ function PlanInput() {
     <div style={{ minHeight: '100vh', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', color: '#111' }}>
       <div style={{ background: '#fff', borderRadius: 24, boxShadow: '0 8px 32px #0002', padding: '3rem 2.5rem', maxWidth: 480, width: '100%', color: '#111' }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 8, background: 'linear-gradient(90deg,#8ec5fc,#e0c3fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}> {/*수정 할수도*/}
+          <div style={{ fontSize: 28, fontWeight: 800, marginBottom: 8, background: 'var(--accent-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}> {/*수정 할수도*/}
             학습 목표 설정
           </div>
           <div style={{ color: '#444', fontSize: 16 }}>
@@ -137,9 +137,9 @@ function PlanInput() {
               ))}
             </select>
           </div>
-          <button type="submit" style={{ width: '100%', padding: '14px 0', borderRadius: 10, background: 'linear-gradient(135deg, #222 0%, #111 100%)', color: '#fff', border: 'none', fontWeight: 'bold', fontSize: 18, boxShadow: '0 2px 8px #1112', cursor: 'pointer', transition: 'background 0.2s' }}
-            onMouseOver={e => e.target.style.background = 'linear-gradient(90deg,#e0c3fc,#8ec5fc)'}
-            onMouseOut={e => e.target.style.background = 'linear-gradient(90deg,#8ec5fc,#e0c3fc)'}
+          <button type="submit" style={{ width: '100%', padding: '14px 0', borderRadius: 10, background: 'var(--accent-gradient)', color: '#fff', border: 'none', fontWeight: 'bold', fontSize: 18, boxShadow: '0 2px 8px #1112', cursor: 'pointer', transition: 'opacity 0.2s' }}
+            onMouseOver={e => e.currentTarget.style.opacity = '0.92'}
+            onMouseOut={e => e.currentTarget.style.opacity = '1'}
           >
             다음 단계로
           </button>

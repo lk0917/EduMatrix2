@@ -1,9 +1,15 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import DashboardNavbar from '../components/DashboardNavbar';
 import AIChatBot from '../components/AIChatBot';
 import 'react-calendar/dist/Calendar.css';
-import axios from 'axios';
+import api from '../services/api';
+import { getWeeklyQuizProgress } from '../services/quizService';
+import {
+  FiHome, FiSettings, FiBookOpen, FiAward, FiBarChart2, FiCalendar,
+  FiStar, FiHelpCircle, FiZap
+} from 'react-icons/fi';
 
 function ModalCard({ open, onClose, title, children }) {
   if (!open) return null;
@@ -42,6 +48,7 @@ function Dashboard() {
   const chatbotRef = useRef(null);
 
   const [progress, setProgress] = useState(null);
+  const [weeklyInfo, setWeeklyInfo] = useState(null);
 
   // Card click animation states
   const [progressPressed, handleProgressPress] = useCardAnimation();
@@ -63,18 +70,50 @@ function Dashboard() {
   };
 
   useEffect(() => {
-    const fetchProgress = async () => {
-      const user_id = localStorage.getItem('user_id');
+    const fetchAll = async () => {
+      // user_id 추출: edumatrix_user 우선, 없으면 개별 키 사용
+      let user_id = null;
+      try {
+        const stored = localStorage.getItem('edumatrix_user');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          user_id = parsed?.user_id ?? parsed?.id ?? null;
+        }
+      } catch (_) {}
+      if (!user_id) {
+        user_id = localStorage.getItem('user_id');
+      }
       if (!user_id) return;
       try {
-        const res = await axios.get(`/api/progress/${user_id}`);
-        setProgress(res.data);
+        const [progressRes, weeklyRes] = await Promise.all([
+          api.get(`/progress/${user_id}`).catch(() => null),
+          getWeeklyQuizProgress(user_id).catch(() => null)
+        ]);
+
+        if (progressRes?.data) {
+          setProgress(progressRes.data);
+        } else {
+          setProgress({ total: 0, expected_date: '-', subject_stats: [] });
+        }
+
+        if (weeklyRes?.success) {
+          setWeeklyInfo(weeklyRes);
+        } else {
+          setWeeklyInfo({ success: false, recentQuizzes: [], progress: { weeklyQuizProgress: 0 } });
+        }
       } catch (error) {
-        console.error("Failed to fetch progress:", error);
+        console.error("Failed to fetch dashboard data:", error);
+        setProgress({ total: 0, expected_date: '-', subject_stats: [] });
+        setWeeklyInfo({ success: false, recentQuizzes: [], progress: { weeklyQuizProgress: 0 } });
       }
     };
-    fetchProgress();
+    fetchAll();
   }, []);
+
+  const latestQuiz = useMemo(() => weeklyInfo?.recentQuizzes?.[0] || null, [weeklyInfo]);
+  const latestQuizScore = latestQuiz?.score ?? null;
+  const latestQuizTestCount = Number(latestQuiz?.testCount ?? 0);
+  const latestQuizTotal = latestQuiz?.problems?.length ?? (latestQuizTestCount >= 5 ? 20 : (latestQuizTestCount > 0 ? 10 : null));
 
   useEffect(() => {
     if (!chatbotOpen) return;
@@ -101,7 +140,8 @@ function Dashboard() {
     if (!user?.user_id) return;
     try {
       const res = await axios.get(`/api/calendar/${user.user_id}`);
-      setCalendarPlans(res.data);
+      // 새로운 API 응답 구조에 맞게 수정
+      setCalendarPlans(res.data.plans || []);
     } catch (err) {
       console.error("캘린더 데이터 조회 실패:", err);
     }
@@ -118,6 +158,10 @@ const getWeeklySummary = () => {
 
     const weekdayNames = ['일', '월', '화', '수', '목', '금', '토'];
 
+  // calendarPlans가 배열인지 확인
+  if (!Array.isArray(calendarPlans)) {
+    return [];
+  }
 
   return calendarPlans
     .filter(p => {
@@ -167,16 +211,23 @@ const getWeeklySummary = () => {
         }
       : {};
 
+  // 진행률 표시 우선순위: (1) ProgressSummary.weeklyQuizProgress → (2) /ai/weekly-quiz/progress.weeklyQuizProgress → (3) ProgressSummary.total
+  const summaryWeekly = typeof progress?.weeklyQuizProgress === 'number' ? progress.weeklyQuizProgress : null;
+  const apiWeekly = typeof weeklyInfo?.progress?.weeklyQuizProgress === 'number' ? weeklyInfo.progress.weeklyQuizProgress : null;
+  const summaryTotal = typeof progress?.total === 'number' ? progress.total : null;
+  const displayProgressPercent = [summaryWeekly, apiWeekly, summaryTotal].find((v) => typeof v === 'number') ?? 0;
+  const isUsingWeekly = displayProgressPercent === summaryWeekly || displayProgressPercent === apiWeekly;
+
   // Sidebar menu items (컬러풀한 아이콘)
   const sidebarMenu = [
-    { label: '대시보드 홈', path: '/dashboard', icon: <span style={{fontSize:22,color:'#667eea'}}>🏠</span> },
-    { label: '설정/마이페이지', path: '/dashboard/studyroom', icon: <span style={{fontSize:22,color:'#43a047'}}>⚙️</span> },
-    { label: '스터디 노트', path: '/dashboard/note', icon: <span style={{fontSize:22,color:'#4caf50'}}>📝</span> },
-    { label: '주간 평가', path: '/dashboard/weekly', icon: <span style={{fontSize:22,color:'#ff9800'}}>🏆</span> },
-    { label: '진행률', path: '/dashboard/progress', icon: <span style={{fontSize:22,color:'#1976d2'}}>📈</span> },
-    { label: '캘린더', path: '/dashboard/calendar', icon: <span style={{fontSize:22,color:'#764ba2'}}>🗓️</span> },
-    { label: '추천 학습', path: '/dashboard/recommend', icon: <span style={{fontSize:22,color:'#2196f3'}}>🌟</span> },
-    { label: '퀴즈', path: '/dashboard/quiz', icon: <span style={{fontSize:22,color:'#e74c3c'}}>❓</span> },
+    { label: '대시보드 홈', path: '/dashboard', icon: <FiHome size={20} color={"#6366f1"} /> },
+    { label: '설정/마이페이지', path: '/dashboard/studyroom', icon: <FiSettings size={20} color={"#10b981"} /> },
+    { label: '스터디 노트', path: '/dashboard/note', icon: <FiBookOpen size={20} color={"#22c55e"} /> },
+    { label: '주간 평가', path: '/dashboard/weekly', icon: <FiAward size={20} color={"#f59e0b"} /> },
+    { label: '진행률', path: '/dashboard/progress', icon: <FiBarChart2 size={20} color={"#3b82f6"} /> },
+    { label: '캘린더', path: '/dashboard/calendar', icon: <FiCalendar size={20} color={"#7c3aed"} /> },
+    { label: '추천 학습', path: '/dashboard/recommend', icon: <FiStar size={20} color={"#06b6d4"} /> },
+    { label: '퀴즈', path: '/dashboard/quiz', icon: <FiHelpCircle size={20} color={"#ef4444"} /> },
   ];
 
   return (
@@ -214,7 +265,6 @@ const getWeeklySummary = () => {
         pointerEvents: sidebarOpen ? 'auto' : 'none',
         display: 'flex', flexDirection: 'column',
         borderTopRightRadius: 28, borderBottomRightRadius: 28,
-        minWidth: 220,
       }} className="sidebar-fancy">
         {/* 상단 로고 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 32, fontWeight: 900, fontSize: 24, color: '#667eea', letterSpacing: -1, textShadow: '0 2px 12px #667eea22', userSelect: 'none' }}>
@@ -237,13 +287,13 @@ const getWeeklySummary = () => {
                 display: 'flex', alignItems: 'center', gap: 15,
                 fontWeight: 700,
                 fontSize: 17,
-                background: window.location.pathname === item.path ? 'linear-gradient(90deg,#a5b4fc,#c7d2fe 80%)' : 'none',
+                background: window.location.pathname === item.path ? 'var(--accent-gradient-soft)' : 'none',
                 color: window.location.pathname === item.path ? '#4338ca' : '#333',
                 boxShadow: window.location.pathname === item.path ? '0 2px 12px #a5b4fc44' : 'none',
                 borderLeft: window.location.pathname === item.path ? '5px solid #667eea' : '5px solid transparent',
               }}
               onClick={() => {navigate(item.path); setSidebarOpen(false);}}
-              onMouseEnter={e => { e.currentTarget.style.background = 'linear-gradient(90deg,#e0e7ff,#c7d2fe 80%)'; e.currentTarget.style.color = '#4338ca'; e.currentTarget.style.boxShadow = '0 2px 12px #a5b4fc44'; }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-gradient-soft)'; e.currentTarget.style.color = '#4338ca'; e.currentTarget.style.boxShadow = '0 2px 12px #a5b4fc44'; }}
               onMouseLeave={e => { if(window.location.pathname !== item.path) { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#333'; e.currentTarget.style.boxShadow = 'none'; } }}
             >
               {item.icon}
@@ -325,7 +375,7 @@ const getWeeklySummary = () => {
             onClick={() => handleNewLearningPress(() => navigate('/subject'))}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-              <span style={{ fontSize: 28, color: '#9c27b0' }}>🚀</span>
+              <FiZap size={24} color={'#9c27b0'} />
               <span style={{ fontWeight: 800, fontSize: 20, color: '#9c27b0' }}>새로운 학습 시작</span>
             </div>
             <div style={{ fontSize: 16, marginBottom: 16 }}>AI가 맞춤형 학습 계획을 만들어드립니다</div>
@@ -353,25 +403,35 @@ const getWeeklySummary = () => {
             onClick={() => handleProgressPress(() => navigate('/dashboard/progress'))}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-              <span style={{ fontSize: 28, color: '#667eea' }}>📈</span>
+              <FiBarChart2 size={24} color={'#667eea'} />
               <span style={{ fontWeight: 800, fontSize: 20, color: '#667eea' }}>학습 진행률</span>
             </div>
             <div style={{ fontSize: 16, marginBottom: 12 }}>이번 주 목표 달성률</div>
             <div style={{ width: '100%', height: 16, background: '#f0f0f0', borderRadius: 10, overflow: 'hidden', marginBottom: 8 }}>
-              <div style={{ width: `${progress?.total || 0}%`, height: '100%', background: 'linear-gradient(90deg,#667eea,#764ba2)', transition: 'width 0.4s' }} />
+              <div style={{ width: `${displayProgressPercent}%`, height: '100%', background: 'var(--accent-gradient)', transition: 'width 0.4s' }} />
             </div>
-            <div style={{ fontWeight: 700, color: '#333', fontSize: 16, marginBottom: 12 }}>{progress?.total || 0}% 달성<span style={{ color: '#4caf50', fontWeight: 600, fontSize: 14, marginLeft: 8 }}>+5% ↑</span></div>
+            <div style={{ fontWeight: 700, color: '#333', fontSize: 16, marginBottom: 12 }}>
+              {displayProgressPercent}% 달성
+              {!isUsingWeekly && typeof progress?.last_week === 'number' && typeof (progress?.total) === 'number' && (
+                <span style={{ color: '#4caf50', fontWeight: 600, fontSize: 14, marginLeft: 8 }}>
+                  {(Number(progress.total) - Number(progress.last_week)) >= 0 ? `+${Number(progress.total) - Number(progress.last_week)}` : `${Number(progress.total) - Number(progress.last_week)}`}% ↑
+                </span>
+              )}
+            </div>
             {/* Subject-wise mini progress */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-            {(progress?.subject_stats || []).map((item) => (
-            <div key={item.name} style={{ flex: 1 }}>
-            <div style={{ fontSize: 12, color: 'var(--color-text)', fontWeight: 600, marginBottom: 2 }}>{item.name}</div>
-            <div style={{ width: '100%', height: 6, background: '#f0f0f0', borderRadius: 4, overflow: 'hidden', marginBottom: 2 }}>
-            <div style={{ width: `${item.percent}%`, height: '100%', background: item.color, transition: 'width 0.4s' }} />
-            </div>
-            <div style={{ fontSize: 11, color: item.color, fontWeight: 700 }}>{item.percent}%</div>
-            </div>
-            ))}
+            {(progress?.subject_stats || []).map((item) => {
+              const color = item.color || '#667eea';
+              return (
+                <div key={item.name} style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, color: 'var(--color-text)', fontWeight: 600, marginBottom: 2 }}>{item.name}</div>
+                  <div style={{ width: '100%', height: 6, background: '#f0f0f0', borderRadius: 4, overflow: 'hidden', marginBottom: 2 }}>
+                    <div style={{ width: `${item.percent}%`, height: '100%', background: color, transition: 'width 0.4s' }} />
+                  </div>
+                  <div style={{ fontSize: 11, color, fontWeight: 700 }}>{item.percent}%</div>
+                </div>
+              );
+            })}
           </div>
             <div style={{ fontSize: 12, color: 'var(--color-text)', marginTop: 2 }}>
               목표 대비 실제 학습량: <b>{progress?.total || 0}%</b> / 예상 달성일: <b>{progress?.expected_date || '-'}</b>
@@ -395,7 +455,7 @@ const getWeeklySummary = () => {
             onClick={() => handleCalendarPress(() => navigate('/dashboard/calendar'))}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-              <span style={{ fontSize: 24, color: '#764ba2' }}>🗓️</span>
+              <FiCalendar size={20} color={'#764ba2'} />
               <span style={{ fontWeight: 800, fontSize: 18, color: '#764ba2' }}>학습 계획 캘린더</span>
             </div>
             <div style={{ width: '100%', textAlign: 'center', marginBottom: 8, color: 'var(--color-text)', fontSize: 14 }}>
@@ -422,7 +482,7 @@ const getWeeklySummary = () => {
             onClick={() => handleRecommendPress(() => navigate('/dashboard/recommend'))}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-              <span style={{ fontSize: 24, color: '#2196f3' }}>🌟</span>
+              <FiStar size={20} color={'#2196f3'} />
               <span style={{ fontWeight: 800, fontSize: 18, color: '#2196f3' }}>추천 학습 목록</span>
             </div>
             <div style={{ display: 'flex', gap: 12 }}>
@@ -449,10 +509,14 @@ const getWeeklySummary = () => {
             onClick={() => handleWeeklyPress(() => navigate('/dashboard/weekly'))}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-              <span style={{ fontSize: 24, color: '#ff9800' }}>🏆</span>
+              <FiAward size={20} color={'#ff9800'} />
               <span style={{ fontWeight: 800, fontSize: 18, color: '#ff9800' }}>주간 최종 평가</span>
             </div>
-            <div style={{ fontSize: 15, marginBottom: 10 }}>이번 주 점수: <span style={{ fontWeight: 700, color: '#667eea' }}>7 / 10</span></div>
+            <div style={{ fontSize: 15, marginBottom: 10 }}>
+              이번 주 점수: <span style={{ fontWeight: 700, color: '#667eea' }}>
+                {latestQuizScore != null && latestQuizTotal != null ? `${latestQuizScore} / ${latestQuizTotal}` : '-'}
+              </span>
+            </div>
             <div style={{ color: 'var(--color-text)', fontSize: 14 }}>이번 주 꾸준히 학습했어요! 다음 주엔 실전 문제에 도전해보세요.</div>
           </div>
         </div>
@@ -472,7 +536,7 @@ const getWeeklySummary = () => {
             onClick={() => handleNotePress(() => navigate('/dashboard/note'))}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-              <span style={{ fontSize: 24, color: '#4caf50' }}>📝</span>
+              <FiBookOpen size={20} color={'#4caf50'} />
               <span style={{ fontWeight: 800, fontSize: 18, color: '#4caf50' }}>스터디 노트</span>
             </div>
             <textarea
@@ -489,24 +553,65 @@ const getWeeklySummary = () => {
             onMouseEnter={() => setHovered('quiz')}
             onMouseLeave={() => setHovered('')}
             onMouseDown={e => e.preventDefault()}
-            onClick={() => handleQuizPress(() => navigate('/dashboard/quiz'))}
+            onClick={() => handleQuizPress(() => navigate('/weekly-quiz'))}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-              <span style={{ fontSize: 24, color: '#e74c3c' }}>❓</span>
+              <FiHelpCircle size={20} color={'#e74c3c'} />
               <span style={{ fontWeight: 800, fontSize: 18, color: '#e74c3c' }}>퀴즈 바로가기</span>
             </div>
-            <div style={{ display: 'flex', gap: 12 }}>
-              {[
-                { title: '파이썬 퀴즈', desc: 'Python 기초 문법 테스트', icon: '🐍', color: '#3776ab' },
-                { title: '영어 퀴즈', desc: '영어 문법 및 어휘 테스트', icon: '🇺🇸', color: '#ff9800' },
-                { title: '웹 개발 퀴즈', desc: 'HTML/CSS/JS 기초 테스트', icon: '🌐', color: '#2196f3' }
-              ].map((quiz, idx) => (
-                <div key={idx} style={{ background: 'var(--card-bg)', borderRadius: 12, padding: '1rem 0.8rem', minWidth: 100, flex: 1, textAlign: 'center', boxShadow: '0 1px 4px #eee' }}>
-                  <div style={{ fontSize: 24, marginBottom: 6 }}>{quiz.icon}</div>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: quiz.color }}>{quiz.title}</div>
-                  <div style={{ color: 'var(--color-text)', fontSize: 12, marginTop: 4 }}>{quiz.desc}</div>
-                </div>
-              ))}
+            <div style={{ background: 'var(--card-bg)', borderRadius: 12, padding: '1rem', boxShadow: '0 1px 4px #eee' }}>
+              <div style={{ fontSize: 14, color: 'var(--color-text)', marginBottom: 8 }}>카테고리별 또는 전체 퀴즈를 선택해서 풀어보세요.</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); navigate('/category-quiz'); }}
+                  style={{
+                    padding: '0.7rem 0.8rem',
+                    borderRadius: 8,
+                    border: '1.5px solid #28a745',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    background: 'transparent',
+                    color: '#28a745',
+                    fontSize: 13
+                  }}
+                >
+                  📚 카테고리별
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); navigate('/weekly-quiz'); }}
+                  style={{
+                    padding: '0.7rem 0.8rem',
+                    borderRadius: 8,
+                    border: 'none',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    background: 'var(--accent-gradient)',
+                    color: '#fff',
+                    fontSize: 13
+                  }}
+                >
+                  🎯 전체 퀴즈
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); navigate('/dashboard/weekly'); }}
+                style={{
+                  width: '100%',
+                  padding: '0.7rem 1rem',
+                  borderRadius: 8,
+                  border: '1.5px solid var(--card-border)',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  background: 'var(--card-bg)',
+                  color: '#333',
+                  fontSize: 13
+                }}
+              >
+                📊 주간 평가 보기
+              </button>
             </div>
           </div>
         </div>

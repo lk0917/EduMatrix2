@@ -29,9 +29,19 @@ router.get("/get-user-plan", async (req, res) => {
 router.get("/:user_id", async (req, res) => {
   try {
     const plans = await CalendarPlan.find({ user_id: req.params.user_id }).sort(
-      { date: 1 }
+      { date: 1, createdAt: 1 }
     );
-    res.json(plans);
+
+    // 날짜별로 그룹화
+    const groupedPlans = {};
+    plans.forEach((plan) => {
+      if (!groupedPlans[plan.date]) {
+        groupedPlans[plan.date] = [];
+      }
+      groupedPlans[plan.date].push(plan);
+    });
+
+    res.json({ plans, groupedPlans });
   } catch (err) {
     console.error("일정 조회 실패:", err);
     res.status(500).json({ error: "일정 조회 실패" });

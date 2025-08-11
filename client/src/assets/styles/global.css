@@ -6,9 +6,8 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Inter', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', 'Apple SD Gothic Neo', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: var(--bg-main, #fff);
@@ -76,6 +75,8 @@ button {
   background: var(--button-bg, #111);
   color: var(--button-text, #fff);
   transition: background 0.18s, color 0.18s;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px #00000012;
 }
 
 input, textarea, select {
@@ -85,9 +86,45 @@ input, textarea, select {
   color: var(--text-main, #111);
   border: 1.5px solid var(--input-border, #e0e0e0);
   transition: background 0.18s, color 0.18s, border 0.18s;
+  border-radius: 12px;
 }
 
 a {
   text-decoration: none;
   color: inherit;
 }
+
+/* Glassmorphism helpers (gradient theme 우선 적용 권장) */
+.glass-card {
+  background: var(--card-bg);
+  border: 1.5px solid var(--card-border);
+  box-shadow: var(--card-shadow);
+  border-radius: 16px;
+  backdrop-filter: saturate(1.1) blur(10px);
+  -webkit-backdrop-filter: saturate(1.1) blur(10px);
+}
+
+.btn-accent {
+  background: var(--accent-gradient);
+  color: var(--button-text, #fff);
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.25);
+}
+
+.text-accent {
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* 고급스러운 아이콘 느낌을 위한 기본 스타일 */
+.icon {
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+}
+
+/* 카드 그리드 간격 기본값 향상 */
+.grid-gap-24 { gap: 24px; }
+.grid-gap-32 { gap: 32px; }
