@@ -27,10 +27,67 @@ function extractJsonObject(text) {
     const last = t.lastIndexOf("}");
     if (first !== -1 && last !== -1 && last > first) {
       const candidate = t.substring(first, last + 1);
+      console.log("JSON 추출 시도:", candidate.substring(0, 200) + "...");
       return JSON.parse(candidate);
     }
-  } catch (_) {}
+  } catch (e) {
+    console.error("JSON 추출 실패:", e.message);
+    console.error("추출 시도한 텍스트:", text.substring(0, 500) + "...");
+  }
   return null;
+}
+
+// JSON 파싱을 더 안전하게 처리하는 함수
+function safeJsonParse(text, fallback = null) {
+  try {
+    // 코드 펜스 제거
+    let cleanedText = text.trim();
+    cleanedText = cleanedText.replace(/```json\n?/g, "").replace(/```\n?/g, "");
+
+    // JSON 객체 찾기
+    const firstBrace = cleanedText.indexOf("{");
+    const lastBrace = cleanedText.lastIndexOf("}");
+
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      const jsonCandidate = cleanedText.substring(firstBrace, lastBrace + 1);
+      console.log(
+        "안전한 JSON 파싱 시도:",
+        jsonCandidate.substring(0, 200) + "..."
+      );
+      return JSON.parse(jsonCandidate);
+    }
+
+    // 배열 형태도 시도
+    const firstBracket = cleanedText.indexOf("[");
+    const lastBracket = cleanedText.lastIndexOf("]");
+
+    if (
+      firstBracket !== -1 &&
+      lastBracket !== -1 &&
+      lastBracket > firstBracket
+    ) {
+      const arrayCandidate = cleanedText.substring(
+        firstBracket,
+        lastBracket + 1
+      );
+      console.log(
+        "배열 JSON 파싱 시도:",
+        arrayCandidate.substring(0, 200) + "..."
+      );
+      return JSON.parse(arrayCandidate);
+    }
+
+    console.error(
+      "JSON 구조를 찾을 수 없음:",
+      cleanedText.substring(0, 200) + "..."
+    );
+    return fallback;
+  } catch (e) {
+    console.error("안전한 JSON 파싱 실패:", e.message);
+    console.error("파싱 시도한 텍스트:", text.substring(0, 500) + "...");
+    console.error("JSON 오류 위치:", e.message);
+    return fallback;
+  }
 }
 
 function buildNarrativeFromReport(r) {
@@ -559,6 +616,24 @@ function generateBadges(
   return badges.length > 0 ? badges : ["학습 의지", "개선 정신"];
 }
 
+// 카테고리별 테스트 횟수 조회 함수
+async function getCategoryTestCount(user_id, category = "기본") {
+  try {
+    // QuizLog에서 직접 카운트 (더 정확함)
+    const quizCount = await QuizLog.countDocuments({
+      user_id,
+      type: "weekly",
+      category: category,
+    });
+
+    console.log(`카테고리 '${category}' 테스트 횟수: ${quizCount}회`);
+    return quizCount;
+  } catch (error) {
+    console.error("카테고리별 테스트 횟수 조회 실패:", error);
+    return 0;
+  }
+}
+
 // 사용자 학습 데이터 수집 함수 (부분 실패 허용, 가능한 데이터만 반환)
 async function collectUserLearningData(user_id) {
   const result = {
@@ -569,6 +644,7 @@ async function collectUserLearningData(user_id) {
     totalNotes: 0,
     totalRecords: 0,
     categorizedData: {}, // 카테고리별 데이터 추가
+    categoryTestCounts: {}, // 카테고리별 테스트 횟수 추가
   };
 
   // 1) 노트 수집 (MongoDB) - 카테고리별로 분류
@@ -656,6 +732,24 @@ async function collectUserLearningData(user_id) {
       .limit(5);
   } catch (e) {
     console.error("이전 퀴즈 기록 조회 실패:", e.message);
+  }
+
+  // 5) 카테고리별 테스트 횟수 조회
+  try {
+    const categories = Object.keys(result.categorizedData);
+    if (categories.length === 0) {
+      categories.push("기본");
+    }
+
+    for (const category of categories) {
+      result.categoryTestCounts[category] = await getCategoryTestCount(
+        user_id,
+        category
+      );
+    }
+  } catch (e) {
+    console.error("카테고리별 테스트 횟수 조회 실패:", e.message);
+    result.categoryTestCounts = { 기본: 0 };
   }
 
   return result;
@@ -879,9 +973,15 @@ ${
         }
       } catch (e) {
         console.error("JSON 파싱 실패:", e.message);
+        console.error("파싱 시도한 JSON 텍스트:", jsonText);
+        console.error("JSON 오류 위치:", e.message);
         return res.status(500).json({
           error: "AI가 생성한 퀴즈 데이터를 처리할 수 없습니다.",
-          details: "퀴즈 데이터 형식이 올바르지 않습니다. 다시 시도해주세요.",
+          details: `JSON 파싱 오류: ${e.message}. 위치: ${
+            e.message.includes("position")
+              ? e.message.split("position")[1]
+              : "알 수 없음"
+          }`,
           thread_id: threadId,
         });
       }
@@ -938,9 +1038,9 @@ ${
 
 // 주간 퀴즈: 문제 생성 (기존)
 router.post("/generate", async (req, res) => {
-  const { user_id, testCount = 1 } = req.body || {};
+  const { user_id, testCount = 1, category = "기본" } = req.body || {};
 
-  const requestKey = `weekly-generate_${user_id}_${testCount}`;
+  const requestKey = `weekly-generate_${user_id}_${testCount}_${category}`;
   if (activeRequests.has(requestKey)) {
     return res.status(429).json({ error: "이미 처리 중인 요청입니다." });
   }
@@ -951,7 +1051,7 @@ router.post("/generate", async (req, res) => {
       return res.status(400).json({ error: "user_id는 필수입니다." });
     }
 
-    console.log("퀴즈 생성 요청 받음:", { user_id, testCount });
+    console.log("퀴즈 생성 요청 받음:", { user_id, testCount, category });
 
     // 환경 변수 확인
     if (!process.env.OPENAI_API_KEY) {
@@ -1092,11 +1192,16 @@ router.post("/generate", async (req, res) => {
     } catch (e) {
       console.error("JSON 파싱 실패:", e.message);
       console.error("파싱 시도한 텍스트:", jsonText);
+      console.error("JSON 오류 위치:", e.message);
 
       // JSON 파싱 실패 시 에러 반환
       return res.status(500).json({
         error: "AI가 생성한 퀴즈 데이터를 처리할 수 없습니다.",
-        details: "퀴즈 데이터 형식이 올바르지 않습니다. 다시 시도해주세요.",
+        details: `JSON 파싱 오류: ${e.message}. 위치: ${
+          e.message.includes("position")
+            ? e.message.split("position")[1]
+            : "알 수 없음"
+        }`,
         thread_id: threadId,
       });
     }
@@ -1105,6 +1210,7 @@ router.post("/generate", async (req, res) => {
       await QuizLog.create({
         user_id,
         type: "weekly",
+        category: category,
         problems: quizData,
         summary,
         goal,
@@ -1376,7 +1482,20 @@ ${
       "updateCategoryProgress 호출 직전 finalCategory 값:",
       finalCategory
     );
-    await updateCategoryProgress(user_id, finalCategory, score, testCount);
+
+    // finalCategory가 유효한지 확인
+    if (
+      finalCategory &&
+      typeof finalCategory === "string" &&
+      finalCategory.trim()
+    ) {
+      await updateCategoryProgress(user_id, finalCategory, score, testCount);
+    } else {
+      console.error(
+        "finalCategory가 유효하지 않아 진행률 업데이트를 건너뜁니다:",
+        finalCategory
+      );
+    }
 
     // 일반 진행률과 카테고리별 진행률 동기화
     const today = new Date();
@@ -1408,6 +1527,84 @@ ${
   }
 });
 
+// 데이터베이스 정리 함수 (잘못된 ProgressSummary 데이터 정리)
+async function cleanupProgressSummaryData() {
+  try {
+    console.log("ProgressSummary 데이터 정리 시작...");
+
+    const allProgressSummaries = await ProgressSummary.find({});
+    let cleanedCount = 0;
+
+    for (const summary of allProgressSummaries) {
+      let needsUpdate = false;
+
+      // categoryProgress 배열 정리
+      if (summary.categoryProgress && Array.isArray(summary.categoryProgress)) {
+        const originalLength = summary.categoryProgress.length;
+        summary.categoryProgress = summary.categoryProgress.filter((cp) => {
+          if (!cp || typeof cp !== "object") return false;
+          if (!cp.category || typeof cp.category !== "string") return false;
+          if (!cp.category.trim()) return false;
+          if (!cp.hasOwnProperty("progress")) return false;
+          if (!cp.hasOwnProperty("quizCount")) return false;
+          if (!cp.hasOwnProperty("averageScore")) return false;
+          return true;
+        });
+
+        if (summary.categoryProgress.length !== originalLength) {
+          needsUpdate = true;
+          console.log(
+            `사용자 ${summary.user_id}: categoryProgress 정리 ${originalLength} → ${summary.categoryProgress.length}`
+          );
+        }
+      } else {
+        summary.categoryProgress = [];
+        needsUpdate = true;
+      }
+
+      // subject_stats 배열 정리
+      if (summary.subject_stats && Array.isArray(summary.subject_stats)) {
+        const originalLength = summary.subject_stats.length;
+        summary.subject_stats = summary.subject_stats.filter((ss) => {
+          if (!ss || typeof ss !== "object") return false;
+          if (!ss.name || typeof ss.name !== "string") return false;
+          if (!ss.name.trim()) return false;
+          if (!ss.hasOwnProperty("percent")) return false;
+          return true;
+        });
+
+        if (summary.subject_stats.length !== originalLength) {
+          needsUpdate = true;
+          console.log(
+            `사용자 ${summary.user_id}: subject_stats 정리 ${originalLength} → ${summary.subject_stats.length}`
+          );
+        }
+      } else {
+        summary.subject_stats = [
+          {
+            name: "기본",
+            percent: summary.total || 0,
+            color: "#667eea",
+            trend: [summary.total || 0],
+          },
+        ];
+        needsUpdate = true;
+      }
+
+      if (needsUpdate) {
+        await summary.save();
+        cleanedCount++;
+      }
+    }
+
+    console.log(
+      `ProgressSummary 데이터 정리 완료: ${cleanedCount}개 문서 업데이트됨`
+    );
+  } catch (error) {
+    console.error("ProgressSummary 데이터 정리 실패:", error);
+  }
+}
+
 // 카테고리별 진행률 업데이트 함수
 async function updateCategoryProgress(user_id, category, score, testCount) {
   try {
@@ -1418,8 +1615,22 @@ async function updateCategoryProgress(user_id, category, score, testCount) {
       testCount,
     });
 
-    if (!category) {
-      console.error("category가 undefined입니다!");
+    if (!category || category === undefined || category === null) {
+      console.error("category가 유효하지 않습니다:", category);
+      console.error("전달된 매개변수:", {
+        user_id,
+        category,
+        score,
+        testCount,
+      });
+      return;
+    }
+
+    // category가 문자열인지 확인하고 기본값 설정
+    const validCategory =
+      typeof category === "string" ? category.trim() : "기본";
+    if (!validCategory) {
+      console.error("category가 빈 문자열입니다. 기본값 사용");
       return;
     }
 
@@ -1439,23 +1650,25 @@ async function updateCategoryProgress(user_id, category, score, testCount) {
     });
 
     if (!progressSummary) {
+      // 새 문서 생성
       progressSummary = new ProgressSummary({
         user_id,
         week_start: weekStart,
         total: 0,
         categoryProgress: [],
+        subject_stats: [],
       });
     }
 
     // 카테고리별 진행률 업데이트
     let categoryProgressIndex = progressSummary.categoryProgress.findIndex(
-      (cp) => cp.category === category
+      (cp) => cp.category === validCategory
     );
 
     if (categoryProgressIndex === -1) {
       // 새 카테고리 추가
       const newCategoryProgress = {
-        category: category,
+        category: validCategory,
         progress: progressPercent,
         lastWeekProgress: 0,
         quizCount: 1,
@@ -1465,7 +1678,6 @@ async function updateCategoryProgress(user_id, category, score, testCount) {
 
       console.log("새 카테고리 진행률 추가:", newCategoryProgress);
       progressSummary.categoryProgress.push(newCategoryProgress);
-      progressSummary.markModified("categoryProgress");
     } else {
       // 기존 카테고리 업데이트
       const categoryProgress =
@@ -1481,7 +1693,10 @@ async function updateCategoryProgress(user_id, category, score, testCount) {
         averageScore: Math.round(totalScore / newQuizCount),
         lastQuizDate: new Date(),
       };
-      progressSummary.markModified("categoryProgress");
+
+      console.log(
+        `카테고리 '${validCategory}' 업데이트: ${categoryProgress.quizCount}회 → ${newQuizCount}회`
+      );
     }
 
     // 전체 진행률 계산 (모든 카테고리 평균)
@@ -1493,16 +1708,43 @@ async function updateCategoryProgress(user_id, category, score, testCount) {
 
     progressSummary.total = Math.round(totalProgress) || 0;
 
+    // subject_stats 완전히 재생성 (기존 데이터 무시하고 categoryProgress 기반으로)
+    const colors = ["#667eea", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
+    
+    progressSummary.subject_stats = progressSummary.categoryProgress.map((cp, index) => ({
+      name: cp.category,
+      percent: cp.progress,
+      color: colors[index % colors.length],
+      trend: [cp.progress],
+    }));
+
+    // 카테고리가 없는 경우 기본값 설정
+    if (progressSummary.subject_stats.length === 0) {
+      progressSummary.subject_stats = [
+        {
+          name: "기본",
+          percent: progressSummary.total || 0,
+          color: colors[0],
+          trend: [progressSummary.total || 0],
+        },
+      ];
+    }
+
+    console.log("subject_stats 완전 재생성:", progressSummary.subject_stats);
+
+    // 저장 전 데이터 검증
     console.log("저장 전 progressSummary 데이터:", {
       user_id: progressSummary.user_id,
       week_start: progressSummary.week_start,
       total: progressSummary.total,
       categoryProgress: progressSummary.categoryProgress,
+      subject_stats: progressSummary.subject_stats,
     });
 
+    // 저장
     await progressSummary.save();
     console.log(
-      `카테고리 '${category}' 진행률 업데이트 완료: ${progressPercent}%`
+      `카테고리 '${validCategory}' 진행률 업데이트 완료: ${progressPercent}%`
     );
   } catch (error) {
     console.error("카테고리별 진행률 업데이트 실패:", error);
@@ -1666,12 +1908,16 @@ router.post("/result", async (req, res) => {
       try {
         // JSON 부분만 추출해서 파싱
         const jsonPart = reportText.split("\n\n")[0];
+        console.log(
+          "파싱 시도할 JSON 부분:",
+          jsonPart.substring(0, 200) + "..."
+        );
         detailedReportData = JSON.parse(jsonPart);
       } catch (parseError) {
-        console.log(
-          "상세 보고서 데이터 파싱 실패, 기본값 사용:",
-          parseError.message
-        );
+        console.error("상세 보고서 데이터 파싱 실패:", parseError.message);
+        console.error("파싱 시도한 JSON 부분:", reportText.split("\n\n")[0]);
+        console.error("JSON 오류 위치:", parseError.message);
+
         // 파싱 실패 시 기본 구조 생성
         const enhancedReport = generateEnhancedReport(
           score,
@@ -1724,8 +1970,19 @@ router.post("/result", async (req, res) => {
       let detailedReportData = null;
       try {
         const jsonPart = reportText.split("\n\n")[0];
+        console.log(
+          "두 번째 파싱 시도할 JSON 부분:",
+          jsonPart.substring(0, 200) + "..."
+        );
         detailedReportData = JSON.parse(jsonPart);
       } catch (parseError) {
+        console.error(
+          "두 번째 상세 보고서 데이터 파싱 실패:",
+          parseError.message
+        );
+        console.error("파싱 시도한 JSON 부분:", reportText.split("\n\n")[0]);
+        console.error("JSON 오류 위치:", parseError.message);
+
         const enhancedReport = generateEnhancedReport(
           score,
           wrong,
@@ -2378,7 +2635,7 @@ async function syncGeneralProgressWithCategory(user_id, weekStart) {
       return;
     }
 
-    // 카테고리별 진행률이 있는 경우 평균 계산, 없는 경우 기존 값 유지
+    // 카테고리별 진행률이 있는 경우 평균 계산
     if (
       progressSummary.categoryProgress &&
       progressSummary.categoryProgress.length > 0
@@ -2391,14 +2648,26 @@ async function syncGeneralProgressWithCategory(user_id, weekStart) {
         totalProgress / progressSummary.categoryProgress.length
       );
 
-      // 일반 진행률 업데이트 (total과 weeklyQuizProgress 모두 동기화)
+      // 일반 진행률 업데이트
       progressSummary.total = averageProgress;
       progressSummary.weeklyQuizProgress = averageProgress;
+
+      // subject_stats 완전히 재생성
+      const colors = ["#667eea", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
+      progressSummary.subject_stats = progressSummary.categoryProgress.map(
+        (cp, index) => ({
+          name: cp.category,
+          percent: cp.progress,
+          color: colors[index % colors.length],
+          trend: [cp.progress],
+        })
+      );
 
       console.log("카테고리별 진행률 기반 동기화 완료:", {
         categoryCount: progressSummary.categoryProgress.length,
         averageProgress,
         totalProgress,
+        subject_stats: progressSummary.subject_stats,
       });
     } else {
       // 카테고리별 진행률이 없는 경우, 기존 total 값을 weeklyQuizProgress와 동기화
@@ -2407,6 +2676,16 @@ async function syncGeneralProgressWithCategory(user_id, weekStart) {
       } else if (typeof progressSummary.weeklyQuizProgress === "number") {
         progressSummary.total = progressSummary.weeklyQuizProgress;
       }
+
+      // 기본 subject_stats 설정
+      progressSummary.subject_stats = [
+        {
+          name: "기본",
+          percent: progressSummary.total || 0,
+          color: "#667eea",
+          trend: [progressSummary.total || 0],
+        },
+      ];
 
       console.log("일반 진행률 동기화 완료 (카테고리 없음):", {
         total: progressSummary.total,
@@ -2422,6 +2701,7 @@ async function syncGeneralProgressWithCategory(user_id, weekStart) {
       categoryCount: progressSummary.categoryProgress?.length || 0,
       total: progressSummary.total,
       weeklyQuizProgress: progressSummary.weeklyQuizProgress,
+      subject_stats: progressSummary.subject_stats,
     });
   } catch (error) {
     console.error("진행률 동기화 실패:", error);

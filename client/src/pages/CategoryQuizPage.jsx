@@ -21,6 +21,15 @@ function CategoryQuizPage() {
     return Boolean(user?.user_id && learningData && selectedCategory && Number(testCount) >= 1);
   }, [user, learningData, selectedCategory, testCount]);
 
+  // 카테고리 변경 시 테스트 횟수 자동 업데이트
+  const handleCategoryChange = (category) => {
+    setSelectedCategory(category);
+    if (learningData?.categoryTestCounts) {
+      const currentTestCount = learningData.categoryTestCounts[category] || 0;
+      setTestCount(currentTestCount + 1);
+    }
+  };
+
   // 사용자 카테고리 및 학습 데이터 로드
   useEffect(() => {
     const loadData = async () => {
@@ -40,6 +49,17 @@ function CategoryQuizPage() {
         const data = await getUserLearningData(user.user_id);
         if (data?.success) {
           setLearningData(data.data);
+          
+          // 카테고리별 테스트 횟수 자동 계산
+          if (data.data.categoryTestCounts) {
+            const categories = Object.keys(data.data.categoryTestCounts);
+            if (categories.length > 0) {
+              const firstCategory = categories[0];
+              const currentTestCount = data.data.categoryTestCounts[firstCategory] || 0;
+              setTestCount(currentTestCount + 1);
+              setSelectedCategory(firstCategory);
+            }
+          }
         }
       } catch (error) {
         console.error('데이터 로드 실패:', error);
@@ -112,7 +132,7 @@ function CategoryQuizPage() {
               return (
                 <div
                   key={category}
-                  onClick={() => setSelectedCategory(category)}
+                  onClick={() => handleCategoryChange(category)}
                   style={{
                     padding: 16,
                     borderRadius: 12,
@@ -128,6 +148,11 @@ function CategoryQuizPage() {
                   <div style={{ fontSize: 14, color: '#666' }}>
                     노트: {categoryData.notes}개 | 기록: {categoryData.records}개
                   </div>
+                  {learningData?.categoryTestCounts && (
+                    <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
+                      테스트: {learningData.categoryTestCounts[category] || 0}회
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -136,6 +161,11 @@ function CategoryQuizPage() {
           {selectedCategory && (
             <div style={{ padding: 12, background: '#e8f2ff', borderRadius: 8, fontSize: 14 }}>
               ✅ 선택된 카테고리: <strong>{selectedCategory}</strong>
+              {learningData?.categoryTestCounts && (
+                <span style={{ marginLeft: 8, color: '#666' }}>
+                  (총 {learningData.categoryTestCounts[selectedCategory] || 0}회 테스트 완료)
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -152,7 +182,13 @@ function CategoryQuizPage() {
                 value={testCount} 
                 onChange={(e) => setTestCount(e.target.value)} 
                 style={{ width: '100%', padding: 10, borderRadius: 10, border: '1px solid var(--card-border)', outline: 'none' }} 
+                readOnly
               />
+              {learningData?.categoryTestCounts && (
+                <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
+                  {selectedCategory} 카테고리 {learningData.categoryTestCounts[selectedCategory] || 0}회 + 1회차
+                </div>
+              )}
             </div>
             <div>
               <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>&nbsp;</div>

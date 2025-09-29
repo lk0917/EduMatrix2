@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
-import { generateWeeklyQuiz, getUserLearningData } from '../services/quizService';
+import { generateWeeklyQuizByCategory, getUserLearningData } from '../services/quizService';
 
 function WeeklyQuizPage() {
   const { user } = useUser();
@@ -12,6 +12,7 @@ function WeeklyQuizPage() {
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
   const [quizData] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState("기본");
 
   const isRequesting = useRef(false);
 
@@ -29,6 +30,17 @@ function WeeklyQuizPage() {
         const data = await getUserLearningData(user.user_id);
         if (data?.success) {
           setLearningData(data.data);
+          
+          // 카테고리별 테스트 횟수 자동 계산
+          if (data.data.categoryTestCounts) {
+            const categories = Object.keys(data.data.categoryTestCounts);
+            if (categories.length > 0) {
+              const firstCategory = categories[0];
+              const currentTestCount = data.data.categoryTestCounts[firstCategory] || 0;
+              setTestCount(currentTestCount + 1);
+              setSelectedCategory(firstCategory);
+            }
+          }
         }
       } catch (error) {
         console.error('학습 데이터 로드 실패:', error);
@@ -40,14 +52,24 @@ function WeeklyQuizPage() {
     loadLearningData();
   }, [user]);
 
+  // 카테고리 변경 시 테스트 횟수 자동 업데이트
+  const handleCategoryChange = (category) => {
+    setSelectedCategory(category);
+    if (learningData?.categoryTestCounts) {
+      const currentTestCount = learningData.categoryTestCounts[category] || 0;
+      setTestCount(currentTestCount + 1);
+    }
+  };
+
   const handleGenerate = async () => {
     if (!canGenerate || isRequesting.current) return;
     setLoading(true);
     isRequesting.current = true;
     try {
-      const data = await generateWeeklyQuiz({
+      const data = await generateWeeklyQuizByCategory({
         user_id: user.user_id,
         testCount: Number(testCount),
+        category: selectedCategory,
       });
       if (!data?.success) throw new Error(data?.error || '퀴즈 생성 실패');
       
@@ -55,7 +77,8 @@ function WeeklyQuizPage() {
       navigate('/weekly-quiz-solve', {
         state: {
           quizData: data.quizData,
-          testCount: Number(testCount)
+          testCount: Number(testCount),
+          category: selectedCategory
         }
       });
     } catch (e) {
@@ -122,6 +145,34 @@ function WeeklyQuizPage() {
         {/* 퀴즈 생성 섹션 */}
         <div style={{ background: 'var(--card-bg)', borderRadius: 16, boxShadow: '0 8px 24px var(--card-shadow)', padding: '1.2rem', marginBottom: 18 }}>
           <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12, color: '#667eea' }}>🎯 퀴즈 생성</h3>
+          
+          {/* 카테고리 선택 */}
+          {learningData?.categoryTestCounts && Object.keys(learningData.categoryTestCounts).length > 1 && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>카테고리 선택</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {Object.keys(learningData.categoryTestCounts).map((category) => (
+                  <button
+                    key={category}
+                    onClick={() => handleCategoryChange(category)}
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: 20,
+                      border: 'none',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      background: selectedCategory === category ? 'var(--accent-gradient)' : 'var(--card-border)',
+                      color: selectedCategory === category ? '#fff' : 'var(--text-main)',
+                      fontSize: 14
+                    }}
+                  >
+                    {category} ({learningData.categoryTestCounts[category]}회)
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 12 }}>
             <div>
               <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>테스트 횟수</div>
@@ -131,7 +182,11 @@ function WeeklyQuizPage() {
                 value={testCount} 
                 onChange={(e) => setTestCount(e.target.value)} 
                 style={{ width: '100%', padding: 10, borderRadius: 10, border: '1px solid var(--card-border)', outline: 'none' }} 
+                readOnly
               />
+              <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
+                {selectedCategory} 카테고리 {learningData?.categoryTestCounts?.[selectedCategory] || 0}회 + 1회차
+              </div>
             </div>
             <div>
               <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>&nbsp;</div>

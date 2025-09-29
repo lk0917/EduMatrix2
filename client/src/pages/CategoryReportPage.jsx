@@ -30,28 +30,134 @@ const parseDetailedReport = (detailedReport) => {
   }
 };
 
-const parseFeedbackReport = (feedbackReport) => {
-  if (!feedbackReport) return null;
-  
-  try {
-    // 문자열인 경우 JSON 파싱 시도
-    if (typeof feedbackReport === 'string') {
-      if (feedbackReport.trim().startsWith('{') || feedbackReport.trim().startsWith('[')) {
-        try {
-          return JSON.parse(feedbackReport);
-        } catch (e) {
-          return { rawText: feedbackReport };
-        }
-      }
-      return { rawText: feedbackReport };
-    }
-    
-    return feedbackReport;
-  } catch (error) {
-    console.error('피드백 보고서 파싱 실패:', error);
-    return { rawText: String(feedbackReport) };
+// 자유형 텍스트(rawText)를 구조화된 보고서 객체로 변환
+// 예상 포맷 예시를 기반으로 정규식으로 주요 필드만 추출하여 매핑합니다.
+const parseRawTextToStructuredReport = (rawText) => {
+  if (typeof rawText !== 'string' || rawText.trim().length === 0) {
+    return null;
   }
+
+  const safeMatch = (regex, idx = 1) => {
+    const m = rawText.match(regex);
+    return m && m[idx] ? m[idx].trim() : undefined;
+  };
+
+  // meta
+  const meta = {
+    goal: safeMatch(/"goal"\s+"([^"]+)"/i),
+    testType: safeMatch(/"testType"\s+"([^"]+)"/i),
+    testCount: (() => {
+      const v = safeMatch(/"testCount"\s+(\d+)/i);
+      return v ? Number(v) : undefined;
+    })(),
+    date: safeMatch(/"timestamp"\s+"([^"]+)"/i) || safeMatch(/\((\d{4}-\d{2}-\d{2}[^)]*)\)/),
+  };
+
+  // score
+  const score = {
+    raw: (() => { const v = safeMatch(/"score"[\s\S]*?"raw"\s+(\d+)/i); return v ? Number(v) : undefined; })(),
+    total: (() => { const v = safeMatch(/"score"[\s\S]*?"total"\s+(\d+)/i); return v ? Number(v) : undefined; })(),
+    percent: (() => { const v = safeMatch(/"score"[\s\S]*?"percent"\s+(\d+)/i); return v ? Number(v) : undefined; })(),
+  };
+
+  // progress
+  const progress = {
+    currentProgressPercent: (() => { const v = safeMatch(/"progress"[\s\S]*?"currentProgressPercent"\s+(\d+)/i); return v ? Number(v) : undefined; })(),
+    previousProgressPercent: (() => { const v = safeMatch(/"progress"[\s\S]*?"previousProgressPercent"\s+(\d+)/i); return v ? Number(v) : undefined; })(),
+    deltaPercent: (() => { const v = safeMatch(/"progress"[\s\S]*?"deltaPercent"\s+(\d+)/i); return v ? Number(v) : undefined; })(),
+    confidence: safeMatch(/"progress"[\s\S]*?"confidence"\s+"([^"]+)"/i),
+    estCompletionDate: safeMatch(/"progress"[\s\S]*?"estCompletionDate"\s+"([^"]+)"/i),
+    rationale: safeMatch(/"progress"[\s\S]*?"rationale"\s*:\s*"([^"]+)"/i)
+  };
+
+  // topicMastery
+  const topicMastery = [];
+  const topicRegex = /"topic"\s+"([^"]+)"[\s\S]*?"masteryPercent"\s+(\d+)/gi;
+  let tm;
+  while ((tm = topicRegex.exec(rawText)) !== null) {
+    topicMastery.push({ topic: tm[1].trim(), mastery: Number(tm[2]) });
+  }
+
+  // wrongAnalysis
+  const wrongAnalysis = [];
+  const waRegex = /\{[\s\S]*?"question"\s+(\d+)[\s\S]*?"errorType"\s+"([^"]+)"[\s\S]*?"cause"\s+"([^"]+)"[\s\S]*?"immediateSolution"\s+"([^"]+)"[\s\S]*?"reference"\s+"([^"]+)"[\s\S]*?\}/gi;
+  let wa;
+  while ((wa = waRegex.exec(rawText)) !== null) {
+    wrongAnalysis.push({
+      questionNumber: Number(wa[1]),
+      errorType: wa[2].trim(),
+      cause: wa[3].trim(),
+      immediateFix: wa[4].trim(),
+      reference: wa[5].trim()
+    });
+  }
+
+  // patterns
+  const patterns = {
+    strengths: safeMatch(/"patterns"[\s\S]*?"strengths"\s+"([^"]+)"/i),
+    weaknesses: safeMatch(/"patterns"[\s\S]*?"weaknesses"\s+"([^"]+)"/i),
+    systemicRisks: safeMatch(/"patterns"[\s\S]*?"systemicRisks"\s+"([^"]+)"/i)
+  };
+
+  // actionPlan next7Days
+  const next7Days = [];
+  const dayRegex = /"Day\s+(\d+)"\s*:\s*\{[\s\S]*?"focus"\s*:\s*"([^"]+)"[\s\S]*?"tasks"\s*:\s*"([^"]+)"[\s\S]*?"time"\s*:\s*"([^"]+)"[\s\S]*?\}/gi;
+  let day;
+  while ((day = dayRegex.exec(rawText)) !== null) {
+    next7Days.push({ day: Number(day[1]), focus: day[2].trim(), tasks: day[3].split(/,\s*|\s*·\s*|\s*•\s*/).filter(Boolean), time: day[4].trim() });
+  }
+
+  // practiceSet
+  const practiceSet = {
+    questionCount: (() => { const v = safeMatch(/"practiceSet"[\s\S]*?"numberOfQuestions"\s+(\d+)/i); return v ? Number(v) : undefined; })(),
+    difficulty: safeMatch(/"practiceSet"[\s\S]*?"difficulty"\s+"([^"]+)"/i),
+    format: safeMatch(/"practiceSet"[\s\S]*?"format"\s+"([^"]+)"/i)
+  };
+
+  // milestoneToGoal
+  const milestoneToGoal = {
+    currentProgress: (() => { const v = safeMatch(/"milestoneToGoal"[\s\S]*?"progressPercent"\s+(\d+)/i); return v ? Number(v) : undefined; })(),
+    nextCheckpoint: safeMatch(/"milestoneToGoal"[\s\S]*?"nextCheckpoint"\s+"([^"]+)"/i),
+    bottleneckFactors: (() => { const v = safeMatch(/"milestoneToGoal"[\s\S]*?"bottleneck"\s+"([^"]+)"/i); return v ? [v] : undefined; })()
+  };
+
+  // nextTestPlan
+  const nextTestPlan = {
+    recommendedDate: safeMatch(/"nextTestPlan"[\s\S]*?"date"\s+"([^"]+)"/i),
+    focusAreas: safeMatch(/"nextTestPlan"[\s\S]*?"goals"\s+"([^"]+)"/i),
+  };
+
+  // reflection
+  const reflection = {
+    prompt: safeMatch(/"reflection"[\s\S]*?"prompt"\s+"([^"]+)"/i),
+    habitTip: safeMatch(/"reflection"[\s\S]*?"habitTip"\s+"([^"]+)"/i)
+  };
+
+  // badges
+  const badges = [];
+  const badgeBlock = safeMatch(/"badges"\s*\[([\s\S]*?)\]/i, 1);
+  if (badgeBlock) {
+    const m = [...badgeBlock.matchAll(/"([^"]+)"/g)].map((b) => b[1]);
+    if (m.length > 0) badges.push(...m);
+  }
+
+  const result = {};
+  if (meta.goal || meta.testType || meta.testCount || meta.date) result.meta = meta;
+  if (score.raw !== undefined || score.total !== undefined || score.percent !== undefined) result.score = score;
+  if (progress.currentProgressPercent !== undefined || progress.previousProgressPercent !== undefined || progress.deltaPercent !== undefined || progress.confidence || progress.estCompletionDate || progress.rationale) result.progress = progress;
+  if (topicMastery.length > 0) result.topicMastery = topicMastery;
+  if (wrongAnalysis.length > 0) result.wrongAnalysis = wrongAnalysis;
+  if (patterns.strengths || patterns.weaknesses || patterns.systemicRisks) result.patterns = patterns;
+  if (next7Days.length > 0) result.actionPlan = { next7Days };
+  if (practiceSet.questionCount || practiceSet.difficulty || practiceSet.format) result.practiceSet = practiceSet;
+  if (milestoneToGoal.currentProgress !== undefined || milestoneToGoal.nextCheckpoint || milestoneToGoal.bottleneckFactors) result.milestoneToGoal = milestoneToGoal;
+  if (nextTestPlan.recommendedDate || nextTestPlan.focusAreas) result.nextTestPlan = nextTestPlan;
+  if (reflection.prompt || reflection.habitTip) result.reflection = reflection;
+  if (badges.length > 0) result.badges = badges;
+
+  return Object.keys(result).length > 0 ? result : null;
 };
+
 
 // 점수에 따른 성과 등급 계산
 const getPerformanceGrade = (score, totalQuestions = 10) => {
@@ -63,239 +169,539 @@ const getPerformanceGrade = (score, totalQuestions = 10) => {
   return { grade: 'C', color: '#dc3545', label: '많은 개선 필요' };
 };
 
-// 접기/펼치기 상태를 관리하는 컴포넌트들
-const CollapsibleArray = ({ value, itemKey, level = 0 }) => {
-  const [isOpen, setIsOpen] = React.useState(true);
-  const indent = level * 20;
 
-  const toggle = React.useCallback(() => setIsOpen(!isOpen), [isOpen]);
+// 새로운 프롬프트 기반 상세 보고서 렌더러
+const DetailedReportRenderer = ({ reportData }) => {
+  console.log('DetailedReportRenderer - reportData:', reportData);
+  console.log('DetailedReportRenderer - reportData keys:', Object.keys(reportData || {}));
+  console.log('DetailedReportRenderer - reportData.meta:', reportData?.meta);
+  console.log('DetailedReportRenderer - reportData.score:', reportData?.score);
+  console.log('DetailedReportRenderer - reportData.progress:', reportData?.progress);
+  if (!reportData) return null;
 
-  return (
-    <div style={{ marginLeft: indent }}>
-      {itemKey && (
-        <div 
-          style={{ 
-            fontWeight: 600, 
-            color: '#495057', 
-            marginBottom: 8,
-            fontSize: 14,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            cursor: 'pointer',
-            padding: '0.3rem 0',
-            borderRadius: 4,
-            transition: 'background 0.2s ease'
-          }}
-          onClick={toggle}
-          onMouseEnter={(e) => e.target.style.background = '#f8f9fa'}
-          onMouseLeave={(e) => e.target.style.background = 'transparent'}
-        >
-          <span style={{ fontSize: 12, color: '#667eea' }}>
-            {isOpen ? '📖' : '📋'}
-          </span>
-          {itemKey} ({value.length}개 항목)
-          <span style={{ fontSize: 12, color: '#6c757d', marginLeft: 'auto' }}>
-            {isOpen ? '▼' : '▶'}
-          </span>
+  // 새로운 JSON 스키마에 맞는 렌더링
+  const renderMetaSection = (meta) => {
+    return (
+      <div style={{ 
+        marginBottom: 20, 
+        padding: '1rem', 
+        background: '#ffffff', 
+        borderRadius: 8, 
+        border: '1px solid #e9ecef'
+      }}>
+        <h4 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: '#1976d2' }}>
+          📋 테스트 정보
+        </h4>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+          <div>
+            <strong>목표:</strong> {meta?.goal || '학습 분석'}
+          </div>
+          <div>
+            <strong>테스트 유형:</strong> {meta?.testType || '종합 평가'}
+          </div>
+          <div>
+            <strong>회차:</strong> {meta?.testCount || '1'}회차
+          </div>
+          <div>
+            <strong>날짜:</strong> {meta?.date ? new Date(meta.date).toLocaleDateString() : new Date().toLocaleDateString()}
+          </div>
         </div>
-      )}
-      {isOpen && (
-        <div style={{ 
-          background: 'linear-gradient(135deg, #f8f9fa, #ffffff)', 
-          borderRadius: 8, 
-          padding: '1rem',
-          border: '1px solid #e9ecef',
-          boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1)'
-        }}>
-          {value.map((item, idx) => (
+      </div>
+    );
+  };
+
+  const renderScoreSection = (score) => {
+    return (
+      <div style={{ 
+        marginBottom: 20, 
+        padding: '1rem', 
+        background: '#ffffff', 
+        borderRadius: 8, 
+        border: '1px solid #e9ecef'
+      }}>
+        <h4 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: '#1976d2' }}>
+          🎯 점수 분석
+        </h4>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
+          <div>
+            <strong>점수:</strong> {score?.raw || 0}/{score?.total || 10}
+          </div>
+          <div>
+            <strong>정답률:</strong> {score?.percent || 0}%
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderProgressSection = (progress) => {
+    return (
+      <div style={{ 
+        marginBottom: 20, 
+        padding: '1rem', 
+        background: '#ffffff', 
+        borderRadius: 8, 
+        border: '1px solid #e9ecef'
+      }}>
+        <h4 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: '#1976d2' }}>
+          📈 학습 진행도
+        </h4>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+          <div>
+            <strong>현재 진행도:</strong> {progress?.currentProgressPercent || 0}%
+          </div>
+          <div>
+            <strong>이전 진행도:</strong> {progress?.previousProgressPercent || 0}%
+          </div>
+          <div>
+            <strong>변화폭:</strong> {progress?.deltaPercent || 0}%p
+          </div>
+          <div>
+            <strong>신뢰도:</strong> {progress?.confidence || 'medium'}
+          </div>
+          <div>
+            <strong>예상 완료일:</strong> {progress?.estCompletionDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+          </div>
+        </div>
+        <div style={{ marginTop: 8, fontSize: 13, color: '#666' }}>
+          <strong>산정 근거:</strong> {progress?.rationale || '기본 분석 기준 적용'}
+        </div>
+      </div>
+    );
+  };
+
+  const renderTopicMasterySection = (topicMastery) => {
+    const defaultTopics = [
+      { topic: '언어 이해', mastery: 9 },
+      { topic: '기술적 이해', mastery: 15 }
+    ];
+    
+    const topics = Array.isArray(topicMastery) && topicMastery.length > 0 ? topicMastery : defaultTopics;
+    
+    return (
+      <div style={{ 
+        marginBottom: 20, 
+        padding: '1rem', 
+        background: '#ffffff', 
+        borderRadius: 8, 
+        border: '1px solid #e9ecef'
+      }}>
+        <h4 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: '#1976d2' }}>
+          🧭 주제별 숙련도
+        </h4>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+          {topics.map((topic, idx) => (
             <div key={idx} style={{ 
-              display: 'flex', 
-              alignItems: 'flex-start', 
-              gap: 10, 
-              marginBottom: idx < value.length - 1 ? 12 : 0,
-              padding: '0.6rem',
-              background: idx % 2 === 0 ? '#ffffff' : '#f8f9fa',
-              borderRadius: 6,
-              border: '1px solid #f1f3f4'
+              padding: '0.8rem', 
+              background: '#fff', 
+              borderRadius: 6, 
+              border: '1px solid #e9ecef',
+              textAlign: 'center'
             }}>
-              <span style={{ 
-                color: '#667eea', 
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>{topic.topic}</div>
+              <div style={{ 
+                fontSize: 18, 
                 fontWeight: 700, 
-                minWidth: 24,
-                fontSize: 12,
-                background: '#667eea20',
-                borderRadius: '50%',
-                width: 20,
-                height: 20,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
+                color: topic.mastery >= 80 ? '#28a745' : topic.mastery >= 60 ? '#ffc107' : '#dc3545'
               }}>
-                {idx + 1}
-              </span>
-              <div style={{ flex: 1, fontSize: 14, lineHeight: 1.5 }}>
-                <JsonValueRenderer value={item} level={level + 1} />
+                {topic.mastery}%
               </div>
             </div>
           ))}
         </div>
-      )}
-    </div>
-  );
-};
+      </div>
+    );
+  };
 
-const CollapsibleObject = ({ value, itemKey, level = 0 }) => {
-  const [isOpen, setIsOpen] = React.useState(level < 2);
-  const indent = level * 20;
-  const objectKeys = Object.keys(value);
-
-  const toggle = React.useCallback(() => setIsOpen(!isOpen), [isOpen]);
-
-  return (
-    <div style={{ marginLeft: indent }}>
-      {itemKey && (
-        <div 
-          style={{ 
-            fontWeight: 600, 
-            color: '#495057', 
-            marginBottom: 8,
-            fontSize: 14,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            cursor: 'pointer',
-            padding: '0.4rem 0.6rem',
-            borderRadius: 6,
-            transition: 'all 0.2s ease',
-            background: 'transparent'
-          }}
-          onClick={toggle}
-          onMouseEnter={(e) => {
-            e.target.style.background = '#667eea10';
-            e.target.style.transform = 'translateX(2px)';
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.background = 'transparent';
-            e.target.style.transform = 'translateX(0)';
-          }}
-        >
-          <span style={{ fontSize: 12, color: '#667eea' }}>
-            {isOpen ? '📂' : '📁'}
-          </span>
-          {itemKey} ({objectKeys.length}개 속성)
-          <span style={{ fontSize: 12, color: '#6c757d', marginLeft: 'auto' }}>
-            {isOpen ? '▼' : '▶'}
-          </span>
-        </div>
-      )}
-      {isOpen && (
-        <div style={{ 
-          background: level === 0 ? 'linear-gradient(135deg, #ffffff, #f8f9fa)' : 
-                     level === 1 ? 'linear-gradient(135deg, #f8f9fa, #ffffff)' : '#f1f3f4',
-          borderRadius: 8,
-          padding: '1rem',
-          border: `1px solid ${level === 0 ? '#e9ecef' : '#dee2e6'}`,
-          marginBottom: 12,
-          boxShadow: level === 0 ? '0 2px 4px rgba(0,0,0,0.1)' : 'inset 0 1px 3px rgba(0,0,0,0.1)'
-        }}>
-          {Object.entries(value).map(([subKey, subValue], idx) => (
-            <div key={subKey} style={{ 
-              marginBottom: idx < objectKeys.length - 1 ? 16 : 0,
-              padding: level > 0 ? '0.5rem' : '0',
-              background: level > 0 && idx % 2 === 0 ? '#ffffff' : 'transparent',
-              borderRadius: level > 0 ? 4 : 0,
-              border: level > 0 ? '1px solid #f1f3f4' : 'none'
+  const renderWrongAnalysisSection = (wrongAnalysis) => {
+    const defaultAnalysis = [
+      {
+        questionNumber: 1,
+        topic: '언어 이해',
+        errorType: '개념 이해 부족',
+        cause: '기본 개념 미흡',
+        immediateFix: '개념 재정리',
+        reference: '학습 노트 1장 참조'
+      },
+      {
+        questionNumber: 2,
+        topic: '기술적 이해',
+        errorType: '계산 실수',
+        cause: '반복 연습 부족',
+        immediateFix: '유사 문제 반복',
+        reference: '학습 노트 3장 참조'
+      }
+    ];
+    
+    const analysis = Array.isArray(wrongAnalysis) && wrongAnalysis.length > 0 ? wrongAnalysis : defaultAnalysis;
+    
+    return (
+      <div style={{ 
+        marginBottom: 20, 
+        padding: '1rem', 
+        background: '#ffffff', 
+        borderRadius: 8, 
+        border: '1px solid #e9ecef'
+      }}>
+        <h4 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: '#1976d2' }}>
+          ❌ 틀린 문제 분석
+        </h4>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {analysis.map((item, idx) => (
+            <div key={idx} style={{ 
+              padding: '1rem', 
+              background: '#fff', 
+              borderRadius: 6, 
+              border: '1px solid #e9ecef'
             }}>
-              <JsonValueRenderer value={subValue} itemKey={subKey} level={level + 1} />
+              <div style={{ fontWeight: 600, marginBottom: 8 }}>
+                Q{item.questionNumber}: {item.topic}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8, fontSize: 14 }}>
+                <div><strong>오류 유형:</strong> {item.errorType}</div>
+                <div><strong>원인:</strong> {item.cause}</div>
+                <div><strong>즉시 수정:</strong> {item.immediateFix}</div>
+                {item.reference && (
+                  <div><strong>참고자료:</strong> {item.reference}</div>
+                )}
+              </div>
             </div>
           ))}
         </div>
-      )}
-    </div>
-  );
-};
-
-// 개별 값 렌더링 컴포넌트
-const JsonValueRenderer = ({ value, itemKey = '', level = 0 }) => {
-  const indent = level * 20;
-
-  if (Array.isArray(value)) {
-    return <CollapsibleArray value={value} itemKey={itemKey} level={level} />;
-  }
-
-  if (typeof value === 'object' && value !== null) {
-    return <CollapsibleObject value={value} itemKey={itemKey} level={level} />;
-  }
-
-  // 기본 값 렌더링
-  return (
-    <div style={{ 
-      marginLeft: indent,
-      marginBottom: 8,
-      padding: '0.4rem 0.6rem',
-      borderRadius: 4,
-      background: level > 1 ? '#ffffff' : 'transparent',
-      border: level > 1 ? '1px solid #f1f3f4' : 'none'
-    }}>
-      {itemKey && (
-        <div style={{ 
-          fontWeight: 600, 
-          color: '#495057',
-          fontSize: 13,
-          marginBottom: 4,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 4
-        }}>
-          <span style={{ color: '#667eea', fontSize: 10 }}>🔹</span>
-          {itemKey}
-        </div>
-      )}
-      <div style={{ 
-        fontSize: 14, 
-        lineHeight: 1.6,
-        color: '#333',
-        padding: itemKey ? '0.3rem 0.6rem' : '0',
-        background: itemKey ? '#f8f9fa' : 'transparent',
-        borderRadius: itemKey ? 4 : 0,
-        border: itemKey ? '1px solid #e9ecef' : 'none',
-        fontFamily: typeof value === 'number' ? 'monospace' : 'inherit',
-        fontWeight: typeof value === 'number' ? 600 : 400
-      }}>
-        {String(value)}
       </div>
-    </div>
-  );
-};
+    );
+  };
 
-// JSON 데이터를 구조화된 UI 컴포넌트로 변환
-const JsonDataRenderer = ({ data, title, icon }) => {
-  if (!data || (typeof data === 'object' && Object.keys(data).length === 0)) return null;
-
-  return (
-    <div style={{ marginBottom: 20 }}>
-      {title && (
-        <h4 style={{ 
-          fontSize: 16, 
-          fontWeight: 700, 
-          marginBottom: 12, 
-          color: '#333',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8
-        }}>
-          {icon} {title}
+  const renderPatternsSection = (patterns) => {
+    if (!patterns) return null;
+    return (
+      <div style={{ 
+        marginBottom: 20, 
+        padding: '1rem', 
+        background: '#ffffff', 
+        borderRadius: 8, 
+        border: '1px solid #e9ecef'
+      }}>
+        <h4 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: '#1976d2' }}>
+          📊 학습 패턴 분석
         </h4>
-      )}
-      <JsonValueRenderer value={data} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 16 }}>
+          {patterns.strengths && (
+            <div>
+              <h5 style={{ color: '#28a745', fontWeight: 600, marginBottom: 8 }}>✅ 강점</h5>
+              <ul style={{ margin: 0, paddingLeft: 16 }}>
+                {Array.isArray(patterns.strengths) ? patterns.strengths.map((strength, idx) => (
+                  <li key={idx} style={{ marginBottom: 4 }}>{strength}</li>
+                )) : <li>{patterns.strengths}</li>}
+              </ul>
+            </div>
+          )}
+          {patterns.weaknesses && (
+            <div>
+              <h5 style={{ color: '#ffc107', fontWeight: 600, marginBottom: 8 }}>⚠️ 약점</h5>
+              <ul style={{ margin: 0, paddingLeft: 16 }}>
+                {Array.isArray(patterns.weaknesses) ? patterns.weaknesses.map((weakness, idx) => (
+                  <li key={idx} style={{ marginBottom: 4 }}>{weakness}</li>
+                )) : <li>{patterns.weaknesses}</li>}
+              </ul>
+            </div>
+          )}
+          {patterns.systemicRisks && (
+            <div>
+              <h5 style={{ color: '#dc3545', fontWeight: 600, marginBottom: 8 }}>🚨 리스크</h5>
+              <ul style={{ margin: 0, paddingLeft: 16 }}>
+                {Array.isArray(patterns.systemicRisks) ? patterns.systemicRisks.map((risk, idx) => (
+                  <li key={idx} style={{ marginBottom: 4 }}>{risk}</li>
+                )) : <li>{patterns.systemicRisks}</li>}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderActionPlanSection = (actionPlan) => {
+    if (!actionPlan) return null;
+    return (
+      <div style={{ 
+        marginBottom: 20, 
+        padding: '1rem', 
+        background: '#ffffff', 
+        borderRadius: 8, 
+        border: '1px solid #e9ecef'
+      }}>
+        <h4 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: '#1976d2' }}>
+          🗓️ 7일 학습 계획
+        </h4>
+        
+        {actionPlan.next7Days && (
+          <div style={{ marginBottom: 16 }}>
+            <h5 style={{ fontWeight: 600, marginBottom: 8 }}>일별 계획</h5>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8 }}>
+              {actionPlan.next7Days.map((day, idx) => (
+                <div key={idx} style={{ 
+                  padding: '0.8rem', 
+                  background: '#fff', 
+                  borderRadius: 6, 
+                  border: '1px solid #e9ecef'
+                }}>
+                  <div style={{ fontWeight: 600, color: '#20c997' }}>Day {day.day}</div>
+                  <div style={{ fontSize: 14, marginBottom: 4 }}>{day.focus}</div>
+                  <div style={{ fontSize: 12, color: '#666' }}>{day.time}</div>
+                  {day.tasks && (
+                    <ul style={{ margin: '4px 0 0 0', paddingLeft: 16, fontSize: 12 }}>
+                      {day.tasks.map((task, taskIdx) => (
+                        <li key={taskIdx}>{task}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {actionPlan.microGoals && (
+          <div style={{ marginBottom: 16 }}>
+            <h5 style={{ fontWeight: 600, marginBottom: 8 }}>🎯 마이크로 목표</h5>
+            <ul style={{ margin: 0, paddingLeft: 16 }}>
+              {Array.isArray(actionPlan.microGoals) ? actionPlan.microGoals.map((goal, idx) => (
+                <li key={idx} style={{ marginBottom: 4 }}>{goal}</li>
+              )) : <li>{actionPlan.microGoals}</li>}
+            </ul>
+          </div>
+        )}
+
+        {actionPlan.resources && (
+          <div>
+            <h5 style={{ fontWeight: 600, marginBottom: 8 }}>📚 추천 자료</h5>
+            <ul style={{ margin: 0, paddingLeft: 16 }}>
+              {Array.isArray(actionPlan.resources) ? actionPlan.resources.map((resource, idx) => (
+                <li key={idx} style={{ marginBottom: 4 }}>{resource}</li>
+              )) : <li>{actionPlan.resources}</li>}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderPracticeSetSection = (practiceSet) => {
+    if (!practiceSet) return null;
+    return (
+      <div style={{ 
+        marginBottom: 20, 
+        padding: '1rem', 
+        background: '#ffffff', 
+        borderRadius: 8, 
+        border: '1px solid #e9ecef'
+      }}>
+        <h4 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: '#1976d2' }}>
+          🧪 맞춤 실습 세트
+        </h4>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
+          <div>
+            <strong>문항수:</strong> {practiceSet.questionCount}문제
+          </div>
+          <div>
+            <strong>난이도:</strong> {practiceSet.difficulty}
+          </div>
+          <div>
+            <strong>형식:</strong> {practiceSet.format}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderMilestoneSection = (milestoneToGoal) => {
+    if (!milestoneToGoal) return null;
+    return (
+      <div style={{ 
+        marginBottom: 20, 
+        padding: '1rem', 
+        background: '#ffffff', 
+        borderRadius: 8, 
+        border: '1px solid #e9ecef'
+      }}>
+        <h4 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: '#1976d2' }}>
+          🏁 목표 진행률
+        </h4>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+          <div>
+            <strong>현재 진행률:</strong> {milestoneToGoal.currentProgress}%
+          </div>
+          <div>
+            <strong>다음 체크포인트:</strong> {milestoneToGoal.nextCheckpoint}%
+          </div>
+        </div>
+        {milestoneToGoal.bottleneckFactors && (
+          <div style={{ marginTop: 12 }}>
+            <h5 style={{ fontWeight: 600, marginBottom: 8 }}>병목 요소</h5>
+            <ul style={{ margin: 0, paddingLeft: 16 }}>
+              {Array.isArray(milestoneToGoal.bottleneckFactors) ? milestoneToGoal.bottleneckFactors.map((factor, idx) => (
+                <li key={idx} style={{ marginBottom: 4 }}>{factor}</li>
+              )) : <li>{milestoneToGoal.bottleneckFactors}</li>}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderNextTestPlanSection = (nextTestPlan) => {
+    if (!nextTestPlan) return null;
+    return (
+      <div style={{ 
+        marginBottom: 20, 
+        padding: '1rem', 
+        background: '#ffffff', 
+        borderRadius: 8, 
+        border: '1px solid #e9ecef'
+      }}>
+        <h4 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: '#1976d2' }}>
+          🧭 다음 테스트 계획
+        </h4>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+          {nextTestPlan.recommendedDate && (
+            <div>
+              <strong>권장 날짜:</strong> {nextTestPlan.recommendedDate}
+            </div>
+          )}
+          {nextTestPlan.focusAreas && (
+            <div>
+              <strong>집중 영역:</strong> {Array.isArray(nextTestPlan.focusAreas) ? nextTestPlan.focusAreas.join(', ') : nextTestPlan.focusAreas}
+            </div>
+          )}
+          {nextTestPlan.preparation && (
+            <div>
+              <strong>준비 사항:</strong>
+              <ul style={{ margin: '4px 0 0 0', paddingLeft: 16 }}>
+                {Array.isArray(nextTestPlan.preparation) ? nextTestPlan.preparation.map((prep, idx) => (
+                  <li key={idx}>{prep}</li>
+                )) : <li>{nextTestPlan.preparation}</li>}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderReflectionSection = (reflection) => {
+    if (!reflection) return null;
+    return (
+      <div style={{ 
+        marginBottom: 20, 
+        padding: '1rem', 
+        background: '#ffffff', 
+        borderRadius: 8, 
+        border: '1px solid #e9ecef'
+      }}>
+        <h4 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: '#1976d2' }}>
+          🪞 자기 성찰
+        </h4>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {reflection.prompt && (
+            <div>
+              <strong>질문:</strong> {reflection.prompt}
+            </div>
+          )}
+          {reflection.habitTip && (
+            <div>
+              <strong>습관 팁:</strong> {reflection.habitTip}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderBadgesSection = (badges) => {
+    if (!Array.isArray(badges) || badges.length === 0) return null;
+    return (
+      <div style={{ 
+        marginBottom: 20, 
+        padding: '1rem', 
+        background: '#ffffff', 
+        borderRadius: 8, 
+        border: '1px solid #e9ecef'
+      }}>
+        <h4 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: '#1976d2' }}>
+          🏅 획득 배지
+        </h4>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {badges.map((badge, idx) => (
+            <span key={idx} style={{ 
+              padding: '0.4rem 0.8rem', 
+              background: '#fff', 
+              borderRadius: 20, 
+              border: '1px solid #fd7e14',
+              color: '#fd7e14',
+              fontSize: 14,
+              fontWeight: 600
+            }}>
+              {badge}
+            </span>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // rawText가 있는 경우: 자유 텍스트를 구조화된 보고서로 변환하여 렌더링
+  if (reportData.rawText) {
+    const structured = parseRawTextToStructuredReport(reportData.rawText);
+    if (structured) {
+      return (
+        <div>
+          {renderMetaSection(structured.meta)}
+          {renderScoreSection(structured.score)}
+          {renderProgressSection(structured.progress)}
+          {renderTopicMasterySection(structured.topicMastery)}
+          {renderWrongAnalysisSection(structured.wrongAnalysis)}
+          {renderPatternsSection(structured.patterns)}
+          {renderActionPlanSection(structured.actionPlan)}
+          {renderPracticeSetSection(structured.practiceSet)}
+          {renderMilestoneSection(structured.milestoneToGoal)}
+          {renderNextTestPlanSection(structured.nextTestPlan)}
+          {renderReflectionSection(structured.reflection)}
+          {renderBadgesSection(structured.badges)}
+        </div>
+      );
+    }
+  }
+
+  // 모든 데이터를 구조화된 형태로 강제 렌더링
+  return (
+    <div>
+      {renderMetaSection(reportData.meta)}
+      {renderScoreSection(reportData.score)}
+      {renderProgressSection(reportData.progress)}
+      {renderTopicMasterySection(reportData.topicMastery)}
+      {renderWrongAnalysisSection(reportData.wrongAnalysis)}
+      {renderPatternsSection(reportData.patterns)}
+      {renderActionPlanSection(reportData.actionPlan)}
+      {renderPracticeSetSection(reportData.practiceSet)}
+      {renderMilestoneSection(reportData.milestoneToGoal)}
+      {renderNextTestPlanSection(reportData.nextTestPlan)}
+      {renderReflectionSection(reportData.reflection)}
+      {renderBadgesSection(reportData.badges)}
     </div>
   );
 };
 
-// 특별한 피드백 섹션 렌더러
+// 기존 피드백 섹션 렌더러 (하위 호환성 유지)
 const FeedbackSectionRenderer = ({ feedbackData }) => {
+  console.log('FeedbackSectionRenderer - feedbackData:', feedbackData);
   if (!feedbackData) return null;
+
+  // 새로운 프롬프트 기반 데이터인지 확인
+  if (feedbackData.meta && feedbackData.score && feedbackData.progress) {
+    console.log('FeedbackSectionRenderer - 새로운 프롬프트 데이터 감지, DetailedReportRenderer 호출');
+    return <DetailedReportRenderer reportData={feedbackData} />;
+  }
 
   // 일반적인 피드백 구조 감지 및 렌더링
   const renderFeedbackSection = (sectionData, sectionTitle, sectionIcon, sectionColor) => {
@@ -331,12 +737,24 @@ const FeedbackSectionRenderer = ({ feedbackData }) => {
                 lineHeight: 1.6,
                 color: '#333'
               }}>
-                {typeof item === 'object' ? <JsonDataRenderer data={item} /> : item}
+                {typeof item === 'object' ? JSON.stringify(item, null, 2) : item}
               </li>
             ))}
           </ul>
         ) : typeof sectionData === 'object' ? (
-          <JsonDataRenderer data={sectionData} />
+          <div style={{ 
+            fontSize: 14, 
+            lineHeight: 1.6, 
+            color: '#333',
+            whiteSpace: 'pre-line',
+            fontFamily: 'monospace',
+            background: '#f8f9fa',
+            padding: '0.8rem',
+            borderRadius: 4,
+            border: '1px solid #e9ecef'
+          }}>
+            {JSON.stringify(sectionData, null, 2)}
+          </div>
         ) : (
           <div style={{ fontSize: 14, lineHeight: 1.6, color: '#333' }}>
             {sectionData}
@@ -425,20 +843,19 @@ const FeedbackSectionRenderer = ({ feedbackData }) => {
         feedbackData.nextSteps, '다음 단계', '🚀', '#fd7e14'
       )}
       
-      {/* 기타 필드들 처리 */}
+      {/* 기타 필드들을 구조화된 형태로 처리 */}
       {Object.entries(feedbackData).map(([key, value]) => {
         if (['summary', 'strengths', 'weaknesses', 'recommendations', 'nextSteps', 'rawText'].includes(key)) {
           return null;
         }
         
-        return (
-          <div key={key}>
-            <JsonDataRenderer 
-              data={value} 
-              title={key.charAt(0).toUpperCase() + key.slice(1)} 
-              icon="📊"
-            />
-          </div>
+        // 기타 필드들도 구조화된 섹션으로 표시 (JSON 객체는 문자열로 변환)
+        const displayValue = typeof value === 'object' ? JSON.stringify(value, null, 2) : value;
+        return renderFeedbackSection(
+          displayValue, 
+          key.charAt(0).toUpperCase() + key.slice(1), 
+          '📊', 
+          '#6c757d'
         );
       })}
     </div>
@@ -511,10 +928,19 @@ function CategoryReportPage() {
 
   const { latestReport, categoryProgress, recentHistory } = reportData;
   
+  // 디버깅을 위한 콘솔 로그 추가
+  console.log('CategoryReportPage - reportData:', reportData);
+  console.log('CategoryReportPage - latestReport:', latestReport);
+  console.log('CategoryReportPage - latestReport.detailedReport:', latestReport.detailedReport);
+  console.log('CategoryReportPage - latestReport.feedback_report:', latestReport.feedback_report);
+  
   // 파싱된 보고서 데이터
   const parsedDetailedReport = parseDetailedReport(latestReport.detailedReport);
-  const parsedFeedbackReport = parseFeedbackReport(latestReport.feedback_report);
+  const parsedFeedbackReport = parseDetailedReport(latestReport.feedback_report);
   const performanceGrade = getPerformanceGrade(latestReport.score, latestReport.totalQuestions);
+  
+  console.log('CategoryReportPage - parsedDetailedReport:', parsedDetailedReport);
+  console.log('CategoryReportPage - parsedFeedbackReport:', parsedFeedbackReport);
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-main)', padding: '2rem 0', color: 'var(--text-main)' }}>
@@ -617,25 +1043,8 @@ function CategoryReportPage() {
           </div>
         </div>
 
-        {/* 상세 피드백 보고서 */}
-        {parsedFeedbackReport && (
-          <div style={{ background: 'var(--card-bg)', borderRadius: 16, boxShadow: '0 8px 24px var(--card-shadow)', padding: '1.5rem', marginBottom: 24 }}>
-            <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16, color: '#667eea' }}>🤖 AI 맞춤 피드백</h3>
-            <div style={{ 
-              background: 'linear-gradient(135deg, #f8f9fa, #ffffff)', 
-              borderRadius: 12, 
-              padding: '1.5rem', 
-              lineHeight: 1.7,
-              border: '1px solid #e9ecef',
-              boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.06)'
-            }}>
-              <FeedbackSectionRenderer feedbackData={parsedFeedbackReport} />
-            </div>
-          </div>
-        )}
-
-        {/* 상세 분석 보고서 */}
-        {parsedDetailedReport && (
+        {/* 심층 학습 분석 보고서 */}
+        {(parsedDetailedReport || parsedFeedbackReport) && (
           <div style={{ background: 'var(--card-bg)', borderRadius: 16, boxShadow: '0 8px 24px var(--card-shadow)', padding: '1.5rem', marginBottom: 24 }}>
             <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16, color: '#667eea' }}>🔬 심층 학습 분석</h3>
             <div style={{ 
@@ -645,17 +1054,11 @@ function CategoryReportPage() {
               border: '1px solid #e3f2fd',
               boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.06)'
             }}>
-              {parsedDetailedReport.rawText ? (
-                <FeedbackSectionRenderer feedbackData={parsedDetailedReport} />
-              ) : (
-                <div>
-                  <JsonDataRenderer 
-                    data={parsedDetailedReport} 
-                    title="" 
-                    icon=""
-                  />
-                </div>
-              )}
+              {(() => {
+                const reportToRender = parsedDetailedReport || parsedFeedbackReport;
+                // 모든 보고서를 구조화된 형태로 표시하기 위해 DetailedReportRenderer만 사용
+                return <DetailedReportRenderer reportData={reportToRender} />;
+              })()}
             </div>
           </div>
         )}
